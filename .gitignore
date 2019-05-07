@@ -1,7 +1,5 @@
 pom.xml
 pom.xml.asc
-*.jar
-*.class
 /lib/
 /classes/
 /target/
@@ -12,3 +10,50 @@ pom.xml.asc
 .lein-failures
 .nrepl-port
 .cpcache/
+
+# Project specific files
+
+# auto generated documentation
+#/doc/clj
+
+# Emacs backup files
+*~
+
+# Compiled source
+*.class
+*.pyc
+
+# Packages
+*.gz
+*.jar
+*.zip
+
+# Logs and databases
+*.log
+
+# Java
+/lib
+/pom.xml
+
+# Clojure
+classes
+/target
+/target-compile
+.lein-*
+.nrepl*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+#._*
+#.Spotlight-V100
+#.Trashes
+#ehthumbs.db
+#Thumbs.db
+
+# idea files
+.idea/
+*.iml
+
+# lein project file
+#project.clj
