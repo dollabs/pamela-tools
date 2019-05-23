@@ -12,7 +12,7 @@
 (def project-url "https://github.com/dollabs/pamela-tools")
 
 (set-env!
-  :source-paths #{"test"}
+  ;:source-paths #{"test"}
   :resource-paths #{"src"}
   ;:repositories #(conj % ["jahmm repo" {:url "http://repo.springsource.org/libs-release-remote"}])
   :dependencies '[[org.clojure/clojure "1.8.0"]
