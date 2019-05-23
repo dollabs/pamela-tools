@@ -78,23 +78,23 @@ echo "Creating pamela-tools jar file"
 boot build
 check_ret $? "boot build"
 
-echo ""
-echo "Creating uber jars"
-
-boot uber-dispatcher
-check_ret $? "boot uber-dispatcher"
-
-echo ""
-boot uber-plant-sim
-check_ret $? "boot uber-plant-sim"
-
-echo""
-boot uber-rmq-logger
-check_ret $? "boot uber-rmq-logger"
-
-echo ""
-boot uber-log-player
-check_ret $? "boot uber-log-player"
+#echo ""
+#echo "Creating uber jars"
+#
+#boot uber-dispatcher
+#check_ret $? "boot uber-dispatcher"
+#
+#echo ""
+#boot uber-plant-sim
+#check_ret $? "boot uber-plant-sim"
+#
+#echo""
+#boot uber-rmq-logger
+#check_ret $? "boot uber-rmq-logger"
+#
+#echo ""
+#boot uber-log-player
+#check_ret $? "boot uber-log-player"
 
 echo ""
 ls -lh target/*.jar
