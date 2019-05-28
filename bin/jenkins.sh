@@ -88,13 +88,13 @@ check_ret $? "boot build"
 #boot uber-plant-sim
 #check_ret $? "boot uber-plant-sim"
 #
-#echo""
-#boot uber-rmq-logger
-#check_ret $? "boot uber-rmq-logger"
-#
-#echo ""
-#boot uber-log-player
-#check_ret $? "boot uber-log-player"
+echo""
+boot uber-rmq-logger
+check_ret $? "boot uber-rmq-logger"
+
+echo ""
+boot uber-log-player
+check_ret $? "boot uber-log-player"
 
 echo ""
 ls -lh target/*.jar

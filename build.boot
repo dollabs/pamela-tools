@@ -79,14 +79,14 @@
          (comp (aot :namespace #{'pamela-tools.plant.plant-sim}) (uber) (jar :file (str "plant-sim-" version ".jar")
                                                                              :main 'pamela-tools.plant.plant-sim) (target :no-clean true)))
 
-#_(deftask uber-rmq-logger
+(deftask uber-rmq-logger
          "Create uber jar for rmq-logger"
          []
          (println "Creating uber jar for rmq-logger")
          (comp (aot :namespace #{'pamela-tools.rmq-logger.core}) (uber) (jar :file (str "rmq-logger-" version ".jar")
                                                                              :main 'pamela-tools.rmq-logger.core) (target :no-clean true)))
 
-#_(deftask uber-log-player
+(deftask uber-log-player
          "Create uber jar for rmq-log-player"
          []
          (println "Creating uber jar for rmq-log-player")
