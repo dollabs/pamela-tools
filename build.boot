@@ -72,7 +72,7 @@
          (comp (aot :namespace #{'pamela-tools.dispatcher.dispatch-app}) (uber) (jar :file (str "dispatcher-" version ".jar")
                                                                                      :main 'pamela-tools.dispatcher.dispatch-app) (target :no-clean true)))
 
-#_(deftask uber-plant-sim
+(deftask uber-plant-sim
          "Create uber jar for uber-plant-sim"
          []
          (println "Creating uber jar for uber-plant-sim")

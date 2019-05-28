@@ -83,11 +83,7 @@ check_ret $? "boot build"
 #
 #boot uber-dispatcher
 #check_ret $? "boot uber-dispatcher"
-#
-#echo ""
-#boot uber-plant-sim
-#check_ret $? "boot uber-plant-sim"
-#
+
 echo""
 boot uber-rmq-logger
 check_ret $? "boot uber-rmq-logger"
