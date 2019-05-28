@@ -1,0 +1,77 @@
+{
+  "network-id": "net-14703",
+  "node-14696": {
+    "uid": "node-14696",
+    "activities": [
+      "act-14701"
+    ],
+    "constraints": [],
+    "incidence-set": [],
+    "end-node": "node-14695",
+    "tpn-type": "p-begin"
+  },
+  "act-14702": {
+    "uid": "act-14702",
+    "end-node": "node-14695",
+    "tpn-type": "null-activity"
+  },
+  "act-14701": {
+    "uid": "act-14701",
+    "end-node": "node-14697",
+    "tpn-type": "null-activity"
+  },
+  "node-14695": {
+    "uid": "node-14695",
+    "activities": [],
+    "incidence-set": [
+      "act-14702"
+    ],
+    "tpn-type": "p-end"
+  },
+  "node-14698": {
+    "uid": "node-14698",
+    "activities": [
+      "act-14702"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-14700"
+    ],
+    "tpn-type": "state"
+  },
+  "act-14700": {
+    "uid": "act-14700",
+    "name": "Background Activities",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-14699"
+    ],
+    "end-node": "node-14698",
+    "tpn-type": "activity"
+  },
+  "cnstr-14699": {
+    "uid": "cnstr-14699",
+    "value": [
+      160,
+      170
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "net-14703": {
+    "uid": "net-14703",
+    "begin-node": "node-14696"
+  },
+  "node-14697": {
+    "uid": "node-14697",
+    "activities": [
+      "act-14700"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-14701"
+    ],
+    "tpn-type": "state"
+  }
+}

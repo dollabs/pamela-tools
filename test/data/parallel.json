@@ -1,0 +1,121 @@
+{
+  "cnstr-24515": {
+    "uid": "cnstr-24515",
+    "value": [
+      1,
+      5
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "act-24517": {
+    "uid": "act-24517",
+    "name": "Bounded",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24515"
+    ],
+    "end-node": "node-24516",
+    "tpn-type": "activity"
+  },
+  "network-id": "net-24528",
+  "node-24522": {
+    "uid": "node-24522",
+    "activities": [
+      "act-24526",
+      "act-24524"
+    ],
+    "constraints": [],
+    "incidence-set": [],
+    "end-node": "node-24523",
+    "tpn-type": "p-begin"
+  },
+  "act-24520": {
+    "uid": "act-24520",
+    "name": "Unbounded",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [],
+    "end-node": "node-24519",
+    "tpn-type": "activity"
+  },
+  "node-24523": {
+    "uid": "node-24523",
+    "activities": [],
+    "incidence-set": [
+      "act-24525",
+      "act-24527"
+    ],
+    "tpn-type": "p-end"
+  },
+  "node-24521": {
+    "uid": "node-24521",
+    "activities": [
+      "act-24520"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24526"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24526": {
+    "uid": "act-24526",
+    "end-node": "node-24521",
+    "tpn-type": "null-activity"
+  },
+  "node-24518": {
+    "uid": "node-24518",
+    "activities": [
+      "act-24517"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24524"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24525": {
+    "uid": "act-24525",
+    "end-node": "node-24523",
+    "tpn-type": "null-activity"
+  },
+  "net-24528": {
+    "uid": "net-24528",
+    "begin-node": "node-24522",
+    "tpn-type": "network"
+  },
+  "node-24516": {
+    "uid": "node-24516",
+    "activities": [
+      "act-24525"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24517"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24524": {
+    "uid": "act-24524",
+    "end-node": "node-24518",
+    "tpn-type": "null-activity"
+  },
+  "node-24519": {
+    "uid": "node-24519",
+    "activities": [
+      "act-24527"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24520"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24527": {
+    "uid": "act-24527",
+    "end-node": "node-24523",
+    "tpn-type": "null-activity"
+  }
+}

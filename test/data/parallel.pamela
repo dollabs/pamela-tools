@@ -1,0 +1,23 @@
+; Pamela code that represents a simple parallel TPN, with 2 activities, 1 activity is bounded and other unbounded.
+
+(defpclass plant []
+           :meta {:doc "The Plant API"}
+
+           :methods [(defpmethod bounded
+                                 {:doc    "Bounded"
+                                  :bounds [1 5]} [])
+                     (defpmethod unbounded
+                                 {:doc "Unbounded"}
+                                 [])
+                     ])
+
+(defpclass parallel-tpn []
+           :meta {:doc "Simple Parallel with 2 Activities"}
+           :fields {:plant (plant)}
+           :methods [(defpmethod simple-parallel-tpn
+                                 {:doc "Simple Parallel TPN"}
+                                 []
+                                 (parallel
+                                   (plant.bounded)
+                                   (plant.unbounded))
+                                 )])

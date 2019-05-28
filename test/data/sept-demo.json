@@ -1,0 +1,848 @@
+{
+  "node-24568": {
+    "uid": "node-24568",
+    "activities": [
+      "act-24573"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24569"
+    ],
+    "tpn-type": "state"
+  },
+  "node-24572": {
+    "uid": "node-24572",
+    "activities": [
+      "act-24583"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24573"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24557": {
+    "uid": "act-24557",
+    "name": "UAV Tasking",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24555"
+    ],
+    "end-node": "node-24556",
+    "tpn-type": "activity"
+  },
+  "cnstr-24555": {
+    "uid": "cnstr-24555",
+    "value": [
+      0,
+      3
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "net-24633": {
+    "uid": "net-24633",
+    "begin-node": "node-24627",
+    "tpn-type": "network"
+  },
+  "node-24544": {
+    "uid": "node-24544",
+    "activities": [
+      "act-24543"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24551"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24610": {
+    "uid": "act-24610",
+    "end-node": "node-24596",
+    "tpn-type": "null-activity"
+  },
+  "node-24538": {
+    "uid": "node-24538",
+    "activities": [
+      "act-24630"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24539"
+    ],
+    "tpn-type": "state"
+  },
+  "node-24585": {
+    "uid": "node-24585",
+    "activities": [
+      "act-24609"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24586"
+    ],
+    "tpn-type": "state"
+  },
+  "cnstr-24563": {
+    "uid": "cnstr-24563",
+    "value": [
+      0,
+      3
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "node-24628": {
+    "uid": "node-24628",
+    "activities": [],
+    "incidence-set": [
+      "act-24632",
+      "act-24630"
+    ],
+    "tpn-type": "p-end"
+  },
+  "act-24613": {
+    "uid": "act-24613",
+    "end-node": "node-24607",
+    "tpn-type": "null-activity"
+  },
+  "node-24558": {
+    "uid": "node-24558",
+    "activities": [
+      "act-24557"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24578"
+    ],
+    "tpn-type": "state"
+  },
+  "node-24622": {
+    "uid": "node-24622",
+    "activities": [
+      "act-24632"
+    ],
+    "incidence-set": [
+      "act-24624",
+      "act-24626"
+    ],
+    "tpn-type": "p-end"
+  },
+  "act-24578": {
+    "uid": "act-24578",
+    "end-node": "node-24558",
+    "tpn-type": "null-activity"
+  },
+  "act-24565": {
+    "uid": "act-24565",
+    "name": "Cache Retrieval",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24563"
+    ],
+    "end-node": "node-24564",
+    "tpn-type": "activity"
+  },
+  "cnstr-24575": {
+    "uid": "cnstr-24575",
+    "value": [
+      78,
+      90
+    ],
+    "end-node": "node-24572",
+    "tpn-type": "temporal-constraint"
+  },
+  "act-24599": {
+    "uid": "act-24599",
+    "end-node": "node-24597",
+    "tpn-type": "null-activity"
+  },
+  "network-id": "net-24633",
+  "cnstr-24548": {
+    "uid": "cnstr-24548",
+    "value": [
+      20,
+      25
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "node-24587": {
+    "uid": "node-24587",
+    "activities": [
+      "act-24586"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24608"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24586": {
+    "uid": "act-24586",
+    "name": "ISR Analysis Phase 1",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24584"
+    ],
+    "end-node": "node-24585",
+    "tpn-type": "activity"
+  },
+  "cnstr-24584": {
+    "uid": "cnstr-24584",
+    "value": [
+      0,
+      6
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "act-24619": {
+    "uid": "act-24619",
+    "end-node": "node-24617",
+    "tpn-type": "null-activity"
+  },
+  "node-24593": {
+    "uid": "node-24593",
+    "activities": [
+      "act-24601"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24594"
+    ],
+    "tpn-type": "state"
+  },
+  "node-24621": {
+    "uid": "node-24621",
+    "activities": [
+      "act-24623",
+      "act-24625"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24631"
+    ],
+    "end-node": "node-24622",
+    "tpn-type": "p-begin"
+  },
+  "node-24542": {
+    "uid": "node-24542",
+    "activities": [
+      "act-24552"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24543"
+    ],
+    "tpn-type": "state"
+  },
+  "node-24627": {
+    "uid": "node-24627",
+    "activities": [
+      "act-24631",
+      "act-24629"
+    ],
+    "constraints": [],
+    "incidence-set": [],
+    "end-node": "node-24628",
+    "tpn-type": "p-begin"
+  },
+  "node-24606": {
+    "uid": "node-24606",
+    "activities": [
+      "act-24610",
+      "act-24608",
+      "act-24612"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24618"
+    ],
+    "end-node": "node-24607",
+    "tpn-type": "p-begin"
+  },
+  "act-24551": {
+    "uid": "act-24551",
+    "end-node": "node-24544",
+    "tpn-type": "null-activity"
+  },
+  "node-24540": {
+    "uid": "node-24540",
+    "activities": [
+      "act-24539"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24629"
+    ],
+    "tpn-type": "state"
+  },
+  "node-24605": {
+    "uid": "node-24605",
+    "activities": [
+      "act-24604"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24612"
+    ],
+    "tpn-type": "state"
+  },
+  "cnstr-24537": {
+    "uid": "cnstr-24537",
+    "value": [
+      160,
+      170
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "act-24632": {
+    "uid": "act-24632",
+    "end-node": "node-24628",
+    "tpn-type": "null-activity"
+  },
+  "node-24615": {
+    "uid": "node-24615",
+    "activities": [
+      "act-24626"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24616"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24561": {
+    "uid": "act-24561",
+    "name": "UAV Data Collection",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24559"
+    ],
+    "end-node": "node-24560",
+    "tpn-type": "activity"
+  },
+  "node-24550": {
+    "uid": "node-24550",
+    "activities": [
+      "act-24624"
+    ],
+    "incidence-set": [
+      "act-24552",
+      "act-24554"
+    ],
+    "tpn-type": "p-end"
+  },
+  "node-24577": {
+    "uid": "node-24577",
+    "activities": [
+      "act-24618"
+    ],
+    "incidence-set": [
+      "act-24583",
+      "act-24579",
+      "act-24581"
+    ],
+    "tpn-type": "c-end"
+  },
+  "act-24569": {
+    "uid": "act-24569",
+    "name": "Surveillance Tasking",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24567"
+    ],
+    "end-node": "node-24568",
+    "tpn-type": "activity"
+  },
+  "cnstr-24614": {
+    "uid": "cnstr-24614",
+    "value": [
+      0,
+      5
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "node-24595": {
+    "uid": "node-24595",
+    "activities": [
+      "act-24594"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24600"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24552": {
+    "uid": "act-24552",
+    "end-node": "node-24550",
+    "tpn-type": "null-activity"
+  },
+  "act-24630": {
+    "uid": "act-24630",
+    "end-node": "node-24628",
+    "tpn-type": "null-activity"
+  },
+  "node-24566": {
+    "uid": "node-24566",
+    "activities": [
+      "act-24565"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24580"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24600": {
+    "uid": "act-24600",
+    "end-node": "node-24595",
+    "tpn-type": "null-activity"
+  },
+  "act-24601": {
+    "uid": "act-24601",
+    "end-node": "node-24597",
+    "tpn-type": "null-activity"
+  },
+  "cnstr-24602": {
+    "uid": "cnstr-24602",
+    "value": [
+      0,
+      7
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "act-24546": {
+    "uid": "act-24546",
+    "name": "VTC Sessions",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [],
+    "end-node": "node-24545",
+    "tpn-type": "activity"
+  },
+  "node-24570": {
+    "uid": "node-24570",
+    "activities": [
+      "act-24569"
+    ],
+    "constraints": [
+      "cnstr-24575"
+    ],
+    "incidence-set": [
+      "act-24582"
+    ],
+    "tpn-type": "state"
+  },
+  "cnstr-24559": {
+    "uid": "cnstr-24559",
+    "value": [
+      0,
+      4
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "cnstr-24541": {
+    "uid": "cnstr-24541",
+    "value": [
+      10,
+      20
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "act-24590": {
+    "uid": "act-24590",
+    "name": "ISR Analysis Phase 2: LowRes",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24588"
+    ],
+    "end-node": "node-24589",
+    "tpn-type": "activity"
+  },
+  "node-24547": {
+    "uid": "node-24547",
+    "activities": [
+      "act-24546"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24553"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24608": {
+    "uid": "act-24608",
+    "end-node": "node-24587",
+    "tpn-type": "null-activity"
+  },
+  "act-24612": {
+    "uid": "act-24612",
+    "end-node": "node-24605",
+    "tpn-type": "null-activity"
+  },
+  "act-24624": {
+    "uid": "act-24624",
+    "end-node": "node-24622",
+    "tpn-type": "null-activity"
+  },
+  "act-24573": {
+    "uid": "act-24573",
+    "name": "Surveillance Data Collection",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24571"
+    ],
+    "end-node": "node-24572",
+    "tpn-type": "activity"
+  },
+  "act-24580": {
+    "uid": "act-24580",
+    "end-node": "node-24566",
+    "tpn-type": "null-activity"
+  },
+  "act-24631": {
+    "uid": "act-24631",
+    "end-node": "node-24621",
+    "tpn-type": "null-activity"
+  },
+  "cnstr-24571": {
+    "uid": "cnstr-24571",
+    "value": [
+      0,
+      4
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "act-24626": {
+    "uid": "act-24626",
+    "end-node": "node-24622",
+    "tpn-type": "null-activity"
+  },
+  "act-24583": {
+    "uid": "act-24583",
+    "end-node": "node-24577",
+    "tpn-type": "null-activity"
+  },
+  "cnstr-24620": {
+    "uid": "cnstr-24620",
+    "value": [
+      123,
+      456
+    ],
+    "end-node": "node-24615",
+    "tpn-type": "temporal-constraint"
+  },
+  "act-24582": {
+    "uid": "act-24582",
+    "end-node": "node-24570",
+    "tpn-type": "null-activity"
+  },
+  "cnstr-24592": {
+    "uid": "cnstr-24592",
+    "value": [
+      0,
+      10
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "act-24616": {
+    "uid": "act-24616",
+    "name": "Product Distribution",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24614"
+    ],
+    "end-node": "node-24615",
+    "tpn-type": "activity"
+  },
+  "act-24623": {
+    "uid": "act-24623",
+    "end-node": "node-24549",
+    "tpn-type": "null-activity"
+  },
+  "act-24539": {
+    "uid": "act-24539",
+    "name": "Background Activities",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24537"
+    ],
+    "end-node": "node-24538",
+    "tpn-type": "activity"
+  },
+  "node-24560": {
+    "uid": "node-24560",
+    "activities": [
+      "act-24579"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24561"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24598": {
+    "uid": "act-24598",
+    "end-node": "node-24591",
+    "tpn-type": "null-activity"
+  },
+  "act-24609": {
+    "uid": "act-24609",
+    "end-node": "node-24607",
+    "tpn-type": "null-activity"
+  },
+  "node-24545": {
+    "uid": "node-24545",
+    "activities": [
+      "act-24554"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24546"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24543": {
+    "uid": "act-24543",
+    "name": "IRC Interactions",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24541"
+    ],
+    "end-node": "node-24542",
+    "tpn-type": "activity"
+  },
+  "act-24625": {
+    "uid": "act-24625",
+    "end-node": "node-24576",
+    "tpn-type": "null-activity"
+  },
+  "act-24629": {
+    "uid": "act-24629",
+    "end-node": "node-24540",
+    "tpn-type": "null-activity"
+  },
+  "act-24579": {
+    "uid": "act-24579",
+    "end-node": "node-24577",
+    "tpn-type": "null-activity"
+  },
+  "node-24617": {
+    "uid": "node-24617",
+    "activities": [
+      "act-24616"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24619"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24618": {
+    "uid": "act-24618",
+    "end-node": "node-24606",
+    "tpn-type": "null-activity"
+  },
+  "node-24596": {
+    "uid": "node-24596",
+    "activities": [
+      "act-24600",
+      "act-24598"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24610"
+    ],
+    "end-node": "node-24597",
+    "tpn-type": "c-begin"
+  },
+  "node-24603": {
+    "uid": "node-24603",
+    "activities": [
+      "act-24613"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24604"
+    ],
+    "tpn-type": "state"
+  },
+  "cnstr-24588": {
+    "uid": "cnstr-24588",
+    "value": [
+      0,
+      10
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "node-24591": {
+    "uid": "node-24591",
+    "activities": [
+      "act-24590"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24598"
+    ],
+    "tpn-type": "state"
+  },
+  "node-24597": {
+    "uid": "node-24597",
+    "activities": [
+      "act-24611"
+    ],
+    "incidence-set": [
+      "act-24599",
+      "act-24601"
+    ],
+    "tpn-type": "c-end"
+  },
+  "act-24553": {
+    "uid": "act-24553",
+    "end-node": "node-24547",
+    "tpn-type": "null-activity"
+  },
+  "act-24581": {
+    "uid": "act-24581",
+    "end-node": "node-24577",
+    "tpn-type": "null-activity"
+  },
+  "node-24556": {
+    "uid": "node-24556",
+    "activities": [
+      "act-24561"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24557"
+    ],
+    "tpn-type": "state"
+  },
+  "act-24611": {
+    "uid": "act-24611",
+    "end-node": "node-24607",
+    "tpn-type": "null-activity"
+  },
+  "node-24564": {
+    "uid": "node-24564",
+    "activities": [
+      "act-24581"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24565"
+    ],
+    "tpn-type": "state"
+  },
+  "node-24549": {
+    "uid": "node-24549",
+    "activities": [
+      "act-24551",
+      "act-24553"
+    ],
+    "constraints": [
+      "cnstr-24548"
+    ],
+    "incidence-set": [
+      "act-24623"
+    ],
+    "end-node": "node-24550",
+    "tpn-type": "p-begin"
+  },
+  "node-24589": {
+    "uid": "node-24589",
+    "activities": [
+      "act-24599"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-24590"
+    ],
+    "tpn-type": "state"
+  },
+  "cnstr-24567": {
+    "uid": "cnstr-24567",
+    "value": [
+      0,
+      3
+    ],
+    "end-node": null,
+    "tpn-type": "temporal-constraint"
+  },
+  "act-24594": {
+    "uid": "act-24594",
+    "name": "ISR Analysis Phase 2: HiRes",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24592"
+    ],
+    "end-node": "node-24593",
+    "tpn-type": "activity"
+  },
+  "node-24607": {
+    "uid": "node-24607",
+    "activities": [
+      "act-24619"
+    ],
+    "incidence-set": [
+      "act-24613",
+      "act-24609",
+      "act-24611"
+    ],
+    "tpn-type": "p-end"
+  },
+  "node-24576": {
+    "uid": "node-24576",
+    "activities": [
+      "act-24578",
+      "act-24580",
+      "act-24582"
+    ],
+    "constraints": [
+      "cnstr-24620"
+    ],
+    "incidence-set": [
+      "act-24625"
+    ],
+    "end-node": "node-24577",
+    "tpn-type": "c-begin"
+  },
+  "act-24554": {
+    "uid": "act-24554",
+    "end-node": "node-24550",
+    "tpn-type": "null-activity"
+  },
+  "act-24604": {
+    "uid": "act-24604",
+    "name": "ISR Analysis Phase 3",
+    "cost": 0,
+    "reward": 0,
+    "constraints": [
+      "cnstr-24602"
+    ],
+    "end-node": "node-24603",
+    "tpn-type": "activity"
+  }
+}

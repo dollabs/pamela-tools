@@ -1,0 +1,48 @@
+{"net-35484":
+ {"uid":"net-35484", "begin-node":"node-35477", "tpn-type":"network"},
+ "network-id":"net-35484",
+ "act-35481":
+ {"uid":"act-35481",
+  "name":"Background Activities",
+  "cost":0,
+  "reward":0,
+  "constraints":["cnstr-35480"],
+  "end-node":"node-35479",
+  "tpn-type":"activity"},
+ "cnstr-35480":
+ {"uid":"cnstr-35480",
+  "value":[160, 170],
+  "end-node":null,
+  "tpn-type":"temporal-constraint"},
+ "act-35483":
+ {"uid":"act-35483",
+  "end-node":"node-35476",
+  "tpn-type":"null-activity"},
+ "node-35477":
+ {"uid":"node-35477",
+  "activities":["act-35482"],
+  "constraints":[],
+  "incidence-set":[],
+  "end-node":"node-35476",
+  "tpn-type":"p-begin"},
+ "node-35478":
+ {"uid":"node-35478",
+  "activities":["act-35481"],
+  "constraints":[],
+  "incidence-set":["act-35482"],
+  "tpn-type":"state"},
+ "act-35482":
+ {"uid":"act-35482",
+  "end-node":"node-35478",
+  "tpn-type":"null-activity"},
+ "node-35476":
+ {"uid":"node-35476",
+  "activities":[],
+  "incidence-set":["act-35483"],
+  "tpn-type":"p-end"},
+ "node-35479":
+ {"uid":"node-35479",
+  "activities":["act-35483"],
+  "constraints":[],
+  "incidence-set":["act-35481"],
+  "tpn-type":"state"}}
