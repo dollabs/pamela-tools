@@ -1,0 +1,39 @@
+;
+; Copyright © 2019 Dynamic Object Language Labs Inc.
+;
+; This software is licensed under the terms of the
+; Apache License, Version 2.0 which can be found in
+; the file LICENSE at the root of this distribution.
+;
+
+; A plant that starts a process using java's exec functions. Note it does not spawns a shell!
+(defpclass pamela.tools.shell-plant []
+           :meta {:doc "The Simple Plant Example"}
+           :methods [
+                     (defpmethod exec
+                                 {:doc "Exec a process command"}
+                                 [cmd arg1 arg2 arg3 arg4])
+                     (defpmethod scp-upload
+                                 {:doc "Secure network file copy"}
+                                 [fromfile host tofile])
+                     (defpmethod ftp
+                                 {:doc "Transfer a file"}
+                                 [from to])
+                     ])
+
+(defpclass plant-work [plant]
+           :meta {:doc "Let's get the plant to do something for us"}
+           :methods [(defpmethod main
+                                 {:doc "Entry point"}
+                                 []
+                                 (sequence
+                                   (plant.exec :bounds [10 20] "sleep" 7)
+                                   (plant.scp-upload :bounds [0 99] "big-file" "192.168.11.100" "/tmp/copyofbig-file")
+                                   (plant.exec :bounds [0 99] "cp" "big-file" "copyof-big-file")
+                                   (plant.exec :bounds [0 99] "ls" "-lart")
+                                   (plant.ftp :bounds [0 99] "bigfile" "ftp-some-where")
+                                   ))])
+
+(defpclass plant-demo []
+           :fields {:plant (shell-plant :id "shell-plant")
+                    :run   (plant-work plant)})             ; FIXME NOTE referencing to field as symbol.
