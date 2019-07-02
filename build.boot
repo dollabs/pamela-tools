@@ -65,7 +65,7 @@
          (comp (pom) (jar) (install) (target :dir #{"target"}))
          )
 
-#_(deftask uber-dispatcher
+(deftask uber-dispatcher
          "Create uber jar for dispatcher"
          []
          (println "Creating uber jar for dispatcher")
