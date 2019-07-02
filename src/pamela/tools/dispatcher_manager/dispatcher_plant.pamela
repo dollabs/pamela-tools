@@ -1,0 +1,11 @@
+;
+; The software contained herein is proprietary and
+; a confidential trade secret of Dynamic Object Language Labs Inc.
+; Copyright (c) 2012.  All rights reserved.
+;
+
+
+(defpclass plant []
+           :meta {:doc "A plant that runs dispatchers"}
+
+           :methods [(defpmethod dispatch_tpn [tpn show-in-planviz])])

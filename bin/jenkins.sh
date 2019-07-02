@@ -78,11 +78,10 @@ echo "Creating pamela-tools jar file"
 boot build
 check_ret $? "boot build"
 
-#echo ""
-#echo "Creating uber jars"
-#
-#boot uber-dispatcher
-#check_ret $? "boot uber-dispatcher"
+echo ""
+echo "Creating uber jars"
+boot uber-dispatcher
+check_ret $? "boot uber-dispatcher"
 
 echo""
 boot uber-rmq-logger
