@@ -10,7 +10,7 @@
   "Learning for biased coin example"
   (:require [pamela.tools.utils.mongo.db :as mdb]
             [pamela.tools.plant-examples.hmm :as hmm]
-            [pamela.tools.plant-examples.util :as util]
+            [pamela.tools.plant.util :as util]
 
             [monger.collection :as mc]
             [monger.query :as mq]

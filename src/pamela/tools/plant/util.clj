@@ -6,7 +6,7 @@
 ; the file LICENSE at the root of this distribution.
 ;
 
-(ns pamela.tools.plant-examples.util
+(ns pamela.tools.plant.util
   (:require [clojure.set :as set]
             [clj-time.local :as l]
             [clj-time.format :as f]

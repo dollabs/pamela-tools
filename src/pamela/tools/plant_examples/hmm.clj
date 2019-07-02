@@ -8,7 +8,7 @@
 
 (ns pamela.tools.plant-examples.hmm
   "Functions to work with Hidden Markov Models"
-  (:require [pamela.tools.plant-examples.util :as util]
+  (:require [pamela.tools.plant.util :as util]
             [clojure.set :as set]
             [clojure.pprint :refer :all])
   (:import (be.ac.ulg.montefiore.run.jahmm OpdfInteger Hmm ObservationInteger)))
