@@ -75,9 +75,9 @@
 
 ; According to javadocs, channels are not thread safe and could lead to bogus data being written to the channel
 ; but this issue hasn't presented itself in last few years.
-(defn- publish "Safe function to publish message"
+(defn publish "Safe function to publish message"
   [data routing-key to-ch exch-name]
-  {:pre [(not (nil? routing-key)) (not (nil? to-ch)) (not (nil? exch-name))]}
+  {:pre [(string? data) (not (nil? routing-key)) (not (nil? to-ch)) (not (nil? exch-name))]}
        ;(println "publishing data" data)
        (let [r-key (or routing-key "#")]
          (if-not routing-key (util/to-std-err "routing-key is nil" exch-name data))
@@ -108,6 +108,7 @@
 (defn publish-object
   "Publishes given clj data structure as json"
   [obj routing-key to-ch exch-name]
+  {:pre [(map? obj)]}
   ;(println "publishing" routing-key exch-name)
   ;(clojure.pprint/pprint obj)
   (publish (cl-json/write-str obj) routing-key to-ch exch-name))

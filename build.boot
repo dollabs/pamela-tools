@@ -72,6 +72,13 @@
          (comp (aot :namespace #{'pamela-tools.dispatcher.dispatch-app}) (uber) (jar :file (str "dispatcher-" version ".jar")
                                                                                      :main 'pamela-tools.dispatcher.dispatch-app) (target :no-clean true)))
 
+(deftask uber-dispatcher-manager
+         "Create uber jar for dispatcher-manager"
+         []
+         (println "Creating uber jar for dispatcher-manager")
+         (comp (aot :namespace #{'pamela-tools.dispatcher_manager.core}) (uber) (jar :file (str "dispatcher-manager-" version ".jar")
+                                                                                     :main 'pamela-tools.dispatcher_manager.core) (target :no-clean true)))
+
 (deftask uber-plant-sim
          "Create uber jar for uber-plant-sim"
          []
