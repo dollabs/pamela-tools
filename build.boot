@@ -14,7 +14,7 @@
 (set-env!
   :source-paths #{"test"}
   :resource-paths #{"src"}
-  ;:repositories #(conj % ["jahmm repo" {:url "http://repo.springsource.org/libs-release-remote"}])
+  :repositories #(conj % ["jahmm repo" {:url "http://repo.springsource.org/libs-release-remote"}])
   :dependencies '[[org.clojure/clojure "1.8.0"]
                   ;[onetom/boot-lein-generate "RELEASE" :scope "test"]
                   [adzerk/boot-test "RELEASE" :scope "test"]
@@ -69,50 +69,50 @@
          "Create uber jar for dispatcher"
          []
          (println "Creating uber jar for dispatcher")
-         (comp (aot :namespace #{'pamela-tools.dispatcher.dispatch-app}) (uber) (jar :file (str "dispatcher-" version ".jar")
-                                                                                     :main 'pamela-tools.dispatcher.dispatch-app) (target :no-clean true)))
+         (comp (aot :namespace #{'pamela.tools.dispatcher.dispatch-app}) (uber) (jar :file (str "dispatcher-" version ".jar")
+                                                                                     :main 'pamela.tools.dispatcher.dispatch-app) (target :no-clean true)))
 
 (deftask uber-dispatcher-manager
          "Create uber jar for dispatcher-manager"
          []
          (println "Creating uber jar for dispatcher-manager")
-         (comp (aot :namespace #{'pamela-tools.dispatcher_manager.core}) (uber) (jar :file (str "dispatcher-manager-" version ".jar")
-                                                                                     :main 'pamela-tools.dispatcher_manager.core) (target :no-clean true)))
+         (comp (aot :namespace #{'pamela.tools.dispatcher_manager.core}) (uber) (jar :file (str "dispatcher-manager-" version ".jar")
+                                                                                     :main 'pamela.tools.dispatcher_manager.core) (target :no-clean true)))
 
 (deftask uber-plant-sim
          "Create uber jar for uber-plant-sim"
          []
          (println "Creating uber jar for uber-plant-sim")
-         (comp (aot :namespace #{'pamela-tools.plant.plant-sim}) (uber) (jar :file (str "plant-sim-" version ".jar")
-                                                                             :main 'pamela-tools.plant.plant-sim) (target :no-clean true)))
+         (comp (aot :namespace #{'pamela.tools.plant.plant-sim}) (uber) (jar :file (str "plant-sim-" version ".jar")
+                                                                             :main 'pamela.tools.plant.plant-sim) (target :no-clean true)))
 
 (deftask uber-rmq-logger
          "Create uber jar for rmq-logger"
          []
          (println "Creating uber jar for rmq-logger")
-         (comp (aot :namespace #{'pamela-tools.rmq-logger.core}) (uber) (jar :file (str "rmq-logger-" version ".jar")
-                                                                             :main 'pamela-tools.rmq-logger.core) (target :no-clean true)))
+         (comp (aot :namespace #{'pamela.tools.rmq-logger.core}) (uber) (jar :file (str "rmq-logger-" version ".jar")
+                                                                             :main 'pamela.tools.rmq-logger.core) (target :no-clean true)))
 
 (deftask uber-log-player
          "Create uber jar for rmq-log-player"
          []
          (println "Creating uber jar for rmq-log-player")
-         (comp (aot :namespace #{'pamela-tools.rmq-logger.log-player}) (uber) (jar :file (str "rmq-log-player-" version ".jar")
-                                                                                   :main 'pamela-tools.rmq-logger.log-player) (target :no-clean true)))
+         (comp (aot :namespace #{'pamela.tools.rmq-logger.log-player}) (uber) (jar :file (str "rmq-log-player-" version ".jar")
+                                                                                   :main 'pamela.tools.rmq-logger.log-player) (target :no-clean true)))
 
 #_(deftask uber-exp-charts
          "Create uber jar for plotting monte carlo experiment stats"
          []
          (println "Create uber jar for plotting monte carlo experiment stats")
-         (comp (aot :namespace #{'pamela-tools.mct-planner.plot-exp-charts}) (uber) (jar :file (str "exp-charts-" version ".jar")
-                                                                                   :main 'pamela-tools.mct-planner.plot-exp-charts) (target :no-clean true)))
+         (comp (aot :namespace #{'pamela.tools.mct-planner.plot-exp-charts}) (uber) (jar :file (str "exp-charts-" version ".jar")
+                                                                                   :main 'pamela.tools.mct-planner.plot-exp-charts) (target :no-clean true)))
 
 #_(deftask uber-experiments
          "Create uber jar for running monte carlo experiments"
          []
          (println "Create uber jar for running monte carlo experiments")
-         (comp (aot :namespace #{'pamela-tools.mct-planner.experiments}) (uber) (jar :file (str "experiments-" version ".jar")
-                                                                                         :main 'pamela-tools.mct-planner.experiments) (target :no-clean true)))
+         (comp (aot :namespace #{'pamela.tools.mct-planner.experiments}) (uber) (jar :file (str "experiments-" version ".jar")
+                                                                                         :main 'pamela.tools.mct-planner.experiments) (target :no-clean true)))
 ; WIP
 #_(deftask build-all
            "Build all uber jars"
