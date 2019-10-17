@@ -38,6 +38,8 @@
 (defonce mongo? false)                                      ;default value.
 (defonce msg-q (new LinkedBlockingQueue))
 (defonce read-thread nil)
+(def truncated-output-length "If non-nil, this is the length of the raw-data output"
+  (atom nil))
 
 (defn update-mongo?-p! "Update state of mongo? var"
   [new-val]
@@ -49,6 +51,8 @@
                   [nil "--dbhost dbhost" "Mongo DB Host"]
                   [nil "--dbport dbport" "Mongo DB Port" :parse-fn #(Integer/parseInt %)]
                   ["-n" "--name dbname" "Mongo DB Name" :default (str "rmq-log-" (.format sdf (Date.)))]
+                  ["-l" "--length length" "Truncated length of the raw-data output"
+                   :default nil :parse-fn #(Integer/parseInt %)]
                   ["-?" "--help"]])
 
 (defn handle-message
@@ -69,7 +73,12 @@
     ;(clojure.pprint/pprint metadata)
     ;(println "--- from exchange:" exchange ",routing-key:" routing-key)
     (when repl (clojure.pprint/pprint m))
-    (println "raw-data," time "," (cl-json/write-str m))
+    (let [untruncated-string (cl-json/write-str m)]
+      (println "raw-data," time "," (if @truncated-output-length
+                                      (subs untruncated-string
+                                            0 (min @truncated-output-length
+                                                   (count untruncated-string)))
+                                      untruncated-string)))
     #_(when mongo? (mongo.db/to-db m))
     ))
 
@@ -125,8 +134,9 @@
 (defn -main
   "Tail messages through exchange"
   [& args]
-  #_(println "args:" args)
-  #_(println "args type:" (type args))
+  (def foo-args args)
+  ;; (println "args:" args)
+  ;; (println "args type:" (type args))
   (let [parsed (cli/parse-opts args cli-options)
         ;_ (println parsed)
         ch-name (get-in parsed [:options :exchange])
@@ -154,8 +164,12 @@
         ;    (mongo.db/connect! :host dbhost :port dbport)
         ;    (mongo.db/get-db (get-in parsed [:options :name]))
         ;    (update-mongo?-p! true))
+        truncation-length (get-in parsed [:options :length])
         ]
 
+    (reset! truncated-output-length truncation-length)
+    (if @truncated-output-length
+      (println "truncated-output-length:" @truncated-output-length))
     (util/to-std-err (println "Tail Config" (:options parsed)))
     (setup-threaded-read)
     (when last-ctag
