@@ -20,7 +20,7 @@
             [pamela.tools.utils.util :as util]
             [pamela.tools.dispatcher.planviz :as planviz]
             [pamela.tools.utils.tpn-types :as tpn_type]
-            [pamela.tools.mct-planner.solver :as solver]
+    ;[pamela.tools.mct-planner.solver :as solver]
             [pamela.tools.mct-planner.expr :as expr]
     ;:reload-all ; Causes problems in repl with clojure multi methods.
             [clojure.string :as string]
@@ -42,6 +42,7 @@
 (def timeunit :secs)
 (def cancel-tc-violations false)                            ;when true, activities that violate upper bounds will be cancelled.
 
+(def force-plant-id false)
 (def monitor-mode nil)
 (def no-tpn-publish false)                                  ;we always publish tpn by default.
 ; To turn on a hack. Assumes arguments of type string are reference fields.
@@ -55,6 +56,7 @@
 (defonce stop-when-rt-exceptions true)
 (defonce activity-started-q (async/chan))
 (defonce observations-q (async/chan))
+
 ; Event handler agent. To simply serialize all events
 (defonce event-handler (agent {}))
 
@@ -134,6 +136,7 @@
                   ["-c" "--auto-cancel" "Will send cancel message to plant, when activities exceed their upper bounds" :default false]
                   ["-w" "--wait-for-dispatch" "Will wait for tpn dispatch command" :default false]
                   [nil "--disable-periodic-solver" "Will not run solver periodically" :default false]
+                  [nil "--force-plant-id" "Will override plant-id specified in TPN with plant" :default nil] ; For regression testing
                   ["-?" "--help"]])
 
 #_(defn parse-summary [args]
@@ -200,9 +203,10 @@
 (defn publish-activity-to-plant [plant act-id]
   ;(println "publish-activity-to-plant" act-id)
   (let [tpn (get-tpn)
-        invocation-id (putil/make-method-id (str (name (get tpn :network-id))  "-" (name act-id) "-" putil/counter-prefix) )
+        invocation-id (putil/make-method-id (str (name (get tpn :network-id)) "-" (name act-id) "-" putil/counter-prefix))
         act-obj (get tpn act-id)
-        plant-id (get-plant-id act-obj)
+        plant-id (if-not force-plant-id (get-plant-id act-obj)
+                                        "plant")
         command (:command act-obj)
         args (or (:args act-obj) [])
         argsmap (or (:argsmap act-obj) {})
@@ -251,15 +255,15 @@
 
         (let [split-vals (parse-reference-field arg)
               belief-state-plant-id "bsm1"
-              for-plant-id (or (first split-vals) (get-plant-id act-obj))
+              for-plant-id (or (first split-vals) (get-plant-id act-obj)) ; not forcing plant-id for belief state TBD
               field-name (second split-vals)
               invocation-id (putil/make-method-id "bs1-query-id")]
           ;(println "field references" split-vals args)
           (println "Query belief state: " act-id " arg:" arg "for-plant-id" for-plant-id)
           (update-state! {invocation-id [act-id arg]})      ; so that we can update bound values for reference fields.
           (plant_i/start plant (name belief-state-plant-id) invocation-id "get-field-value" [for-plant-id field-name]
-                                 {:plant-id   for-plant-id
-                                  :field-name field-name} nil nil))))))
+                         {:plant-id   for-plant-id
+                          :field-name field-name} nil nil))))))
 
 (defn publish-to-plant [tpn-activities]
   ; when received, update the value in :tpn-map
@@ -294,7 +298,7 @@
 (defn get-tc-uid-for-expr
   "Return temporal-constraint uid or nil"
   [expr]
-  {:pre [(util/check-type pamela.tools.mct_planner.expr.expr expr)]}           ;When this condition fails, code stops and no meaningful information is given.
+  {:pre [(util/check-type pamela.tools.mct_planner.expr.expr expr)]} ;When this condition fails, code stops and no meaningful information is given.
   ;(pprint expr)
   ;(println (type expr) "\n" (instance? repr.expr.expr expr))
   ;(println expr)
@@ -316,7 +320,9 @@
               disp-id (dispatch/get-plant-dispatch-id act-id)]
           (when disp-id
             (println "Sending cancel message" act-id disp-id)
-            (plant_i/cancel plant (get-plant-id act) disp-id time-millis)))))))
+            (plant_i/cancel plant (if-not force-plant-id (get-plant-id act)
+                                                         "plant")
+                            disp-id time-millis)))))))
 
 (defn throttle-feasibility-helper []
   (let [last-time (:last-solver-time @state)
@@ -345,124 +351,124 @@
 ; Running constraint solver
 ; Create initial bindings when TPN is dispatched.
 ; Update bindings before dispatching next activity?
-(defn check-and-report-infeasibility-helper [tpn-map exprs reached-state]
-  (try (let [start (System/currentTimeMillis)]
-         (println "start -- check-and-report-infeasibility-helper" (util/getCurrentThreadName))
-         (if-not (throttle-feasibility-helper)
-           (let [nid2-var (get-in @state [:expr-details :nid-2-var])
-                 nid-2-var-range-x (dispatch/nid-2-var-range nid2-var)
-                 initial-bindings (dispatch/temporal-bindings-from-tpn-state nid-2-var-range-x reached-state)
-                 #_ (do (println "initial bindings")
-                        (pprint initial-bindings))
-                 sample (if (pos? (count initial-bindings))
-                          (solver/solve exprs (get-nid-2-var) 1 initial-bindings)
-                          (solver/solve exprs (get-nid-2-var) 1))
+#_(defn check-and-report-infeasibility-helper [tpn-map exprs reached-state]
+    (try (let [start (System/currentTimeMillis)]
+           (println "start -- check-and-report-infeasibility-helper" (util/getCurrentThreadName))
+           (if-not (throttle-feasibility-helper)
+             (let [nid2-var (get-in @state [:expr-details :nid-2-var])
+                   nid-2-var-range-x (dispatch/nid-2-var-range nid2-var)
+                   initial-bindings (dispatch/temporal-bindings-from-tpn-state nid-2-var-range-x reached-state)
+                   #_(do (println "initial bindings")
+                         (pprint initial-bindings))
+                   sample (if (pos? (count initial-bindings))
+                            (solver/solve exprs (get-nid-2-var) 1 initial-bindings)
+                            (solver/solve exprs (get-nid-2-var) 1))
 
-                 metrics (solver/collect-metrics sample)
+                   metrics (solver/collect-metrics sample)
 
-                 sample (first sample)
-                 new-bindings (:bindings sample)
+                   sample (first sample)
+                   new-bindings (:bindings sample)
 
-                 expr-state (:satisfies sample)
-                 ; Group expressions into normal and failed where failed is any activity that has started but violated its constraint.
-                 norm-failed (group-by (fn [[expr value]]
-                                         (cond (and (false? value) (dispatch/get-start-time (expr/get-tpn-uid expr)))
-                                               :failed
-                                               ; Note that a expr that has been cancelled before it has started,
-                                               ; will have 0 execution time units and hence will be marked as failed if lower-bound is > 0.
-                                               ; Even though expr has failed mathematically, it is not failed as it never started.
-                                               :else
-                                               :normal)) expr-state)
-                 failed-exprs (:failed norm-failed)
-                 norm-exprs (:normal norm-failed)
+                   expr-state (:satisfies sample)
+                   ; Group expressions into normal and failed where failed is any activity that has started but violated its constraint.
+                   norm-failed (group-by (fn [[expr value]]
+                                           (cond (and (false? value) (dispatch/get-start-time (expr/get-tpn-uid expr)))
+                                                 :failed
+                                                 ; Note that a expr that has been cancelled before it has started,
+                                                 ; will have 0 execution time units and hence will be marked as failed if lower-bound is > 0.
+                                                 ; Even though expr has failed mathematically, it is not failed as it never started.
+                                                 :else
+                                                 :normal)) expr-state)
+                   failed-exprs (:failed norm-failed)
+                   norm-exprs (:normal norm-failed)
 
-                 failed-objs (reduce (fn [res [expr _]]
-                                       (conj res (get-in expr [:m :object])))
-                                     #{} failed-exprs)
+                   failed-objs (reduce (fn [res [expr _]]
+                                         (conj res (get-in expr [:m :object])))
+                                       #{} failed-exprs)
 
-                 failed-tc-ids (reduce (fn [res [expr _]]
-                                         (let [uid (get-tc-uid-for-expr expr)]
-                                           (if uid
-                                             (conj res uid)
-                                             res)))
-                                       #{}  failed-exprs)
+                   failed-tc-ids (reduce (fn [res [expr _]]
+                                           (let [uid (get-tc-uid-for-expr expr)]
+                                             (if uid
+                                               (conj res uid)
+                                               res)))
+                                         #{} failed-exprs)
 
-                 normal-tc-ids (reduce (fn [res [expr _]]
-                                         (let [uid (get-tc-uid-for-expr expr)]
-                                           (if uid
-                                             (conj res uid)
-                                             res)))
-                                       #{}  norm-exprs)
-                 planviz (:planviz @state)]
+                   normal-tc-ids (reduce (fn [res [expr _]]
+                                           (let [uid (get-tc-uid-for-expr expr)]
+                                             (if uid
+                                               (conj res uid)
+                                               res)))
+                                         #{} norm-exprs)
+                   planviz (:planviz @state)]
 
-             ;(println "check-and-report-infeasibility")
-             ;(println "Failed exprs")
-             ;(pprint failed-exprs)
-             ;(println "Failed objects" failed-objs)
+               ;(println "check-and-report-infeasibility")
+               ;(println "Failed exprs")
+               ;(pprint failed-exprs)
+               ;(println "Failed objects" failed-objs)
 
-             ; Helpful for debugging
-             ;(println "expr-state")
-             ;(pprint expr-state)
-             ;(println "Bindings for vars")
-             ;(pprint new-bindings)
-             ;(println "nid-2-var-range-x")
-             ;(pprint nid-2-var-range-x)
-             ;(println "Bindings for objs")
-             ;(pprint (set/rename-keys new-bindings (get-in @state [:expr-details :var-2-nid])))
+               ; Helpful for debugging
+               ;(println "expr-state")
+               ;(pprint expr-state)
+               ;(println "Bindings for vars")
+               ;(pprint new-bindings)
+               ;(println "nid-2-var-range-x")
+               ;(pprint nid-2-var-range-x)
+               ;(println "Bindings for objs")
+               ;(pprint (set/rename-keys new-bindings (get-in @state [:expr-details :var-2-nid])))
 
-             (let [prev-reached-state (:reached-state @state)
-                   updated (if prev-reached-state
-                             (conj prev-reached-state reached-state)
-                             [reached-state])]
-               (update-state! {:reached-state updated}))
-             (when collect-bindings?
-               (collect-bindings initial-bindings new-bindings))
+               (let [prev-reached-state (:reached-state @state)
+                     updated (if prev-reached-state
+                               (conj prev-reached-state reached-state)
+                               [reached-state])]
+                 (update-state! {:reached-state updated}))
+               (when collect-bindings?
+                 (collect-bindings initial-bindings new-bindings))
 
-             (when debug
-               (println "expr initial bindings")
-               (pprint initial-bindings)
-               (println "expr new bindings")
-               (pprint new-bindings)
+               (when debug
+                 (println "expr initial bindings")
+                 (pprint initial-bindings)
+                 (println "expr new bindings")
+                 (pprint new-bindings)
 
-               (println "normal uids:" normal-tc-ids)
-               (println "Failed expression ids:" failed-tc-ids)
-               (println "Bound expr count: " (count (:expr-values sample)))
-               (doseq [exp (:expr-values sample)]
-                 (pprint (first exp))
-                 (println (if (ratio? (second exp))
-                            (float (second exp))
-                            (second exp)))))
+                 (println "normal uids:" normal-tc-ids)
+                 (println "Failed expression ids:" failed-tc-ids)
+                 (println "Bound expr count: " (count (:expr-values sample)))
+                 (doseq [exp (:expr-values sample)]
+                   (pprint (first exp))
+                   (println (if (ratio? (second exp))
+                              (float (second exp))
+                              (second exp)))))
 
-             ; i.e Send state info about all exprs to planviz, not just failed exprs.
-             (if planviz
+               ; i.e Send state info about all exprs to planviz, not just failed exprs.
+               (if planviz
 
-               (do
-                 (planviz/normal planviz normal-tc-ids (:network-id tpn-map))
-                 (planviz/failed planviz failed-tc-ids (:network-id tpn-map)))
-               (println "Planviz reference is not valid"))
+                 (do
+                   (planviz/normal planviz normal-tc-ids (:network-id tpn-map))
+                   (planviz/failed planviz failed-tc-ids (:network-id tpn-map)))
+                 (println "Planviz reference is not valid"))
 
-             (when cancel-tc-violations
-               ;; Find not-finished activities
-               (let [dispatched (dispatch/get-dispatched-activities tpn-map)
-                     ids (reduce (fn [res act]
-                                   (conj res (:uid act))) #{} dispatched)
-                     cancellable (set/intersection ids failed-objs)]
-                 ;(println "Dispatched" ids)
-                 ;(println "Cancellable" cancellable)
-                 (act-cancel-handler cancellable)))
+               (when cancel-tc-violations
+                 ;; Find not-finished activities
+                 (let [dispatched (dispatch/get-dispatched-activities tpn-map)
+                       ids (reduce (fn [res act]
+                                     (conj res (:uid act))) #{} dispatched)
+                       cancellable (set/intersection ids failed-objs)]
+                   ;(println "Dispatched" ids)
+                   ;(println "Cancellable" cancellable)
+                   (act-cancel-handler cancellable)))
 
-             ; publish metrics of the sample
-             ;(publish-metrics-observations metrics); TODO FIXME Exception in thread "Solver timer" java.lang.Exception: Don't know how to write JSON of class clojure.lang.Atom
+               ; publish metrics of the sample
+               ;(publish-metrics-observations metrics); TODO FIXME Exception in thread "Solver timer" java.lang.Exception: Don't know how to write JSON of class clojure.lang.Atom
 
-             (update-state! {:last-solver-time (System/currentTimeMillis)})))
-         (println "end -- check-and-report-infeasibility-helper"
-                  (float (/ (- (System/currentTimeMillis) start) 1000)) (util/getCurrentThreadName)))
-       (catch Exception e
-         (swap! rt-exceptions conj e)
-         (util/to-std-err (println "Exception: ")
-                                           (.getMessage e)
-                                           (.printStackTrace e)
-                                           ))))
+               (update-state! {:last-solver-time (System/currentTimeMillis)})))
+           (println "end -- check-and-report-infeasibility-helper"
+                    (float (/ (- (System/currentTimeMillis) start) 1000)) (util/getCurrentThreadName)))
+         (catch Exception e
+           (swap! rt-exceptions conj e)
+           (util/to-std-err (println "Exception: ")
+                            (.getMessage e)
+                            (.printStackTrace e)
+                            ))))
 
 (defn activity-ready-for-solver?
   "activity must have dispatched. i.e dispatch has :start-time"
@@ -491,28 +497,28 @@
 ;;; Ensure now - act-starttime > lower-bound
 ;;; Run solver with appropriate bindings
 ;;;
-(defn periodic-solver []
-  (let [now (util/getTimeInSeconds)
-        _ (println "Running periodic solver" now)
-        tpn-map (:tpn-map @state)
-        exprs (get-exprs)
-        dispatched (dispatch/get-unfinished-activities tpn-map)
-        dispatched (filter (fn [act]
-                             (activity-ready-for-solver? act now tpn-map)) dispatched)
-        end-nodes (map (fn [act]
-                         (:end-node act)) dispatched)
-        reached-state (dispatch/get-node-started-times tpn-map)
+#_(defn periodic-solver []
+    (let [now (util/getTimeInSeconds)
+          _ (println "Running periodic solver" now)
+          tpn-map (:tpn-map @state)
+          exprs (get-exprs)
+          dispatched (dispatch/get-unfinished-activities tpn-map)
+          dispatched (filter (fn [act]
+                               (activity-ready-for-solver? act now tpn-map)) dispatched)
+          end-nodes (map (fn [act]
+                           (:end-node act)) dispatched)
+          reached-state (dispatch/get-node-started-times tpn-map)
 
-        reached-state (reduce (fn [result nid]
-                                (conj result {nid now})) reached-state end-nodes)]
-    ;(println "Dispatched")
-    ;(pprint dispatched)
-    (check-and-report-infeasibility-helper tpn-map exprs reached-state)))
+          reached-state (reduce (fn [result nid]
+                                  (conj result {nid now})) reached-state end-nodes)]
+      ;(println "Dispatched")
+      ;(pprint dispatched)
+      (check-and-report-infeasibility-helper tpn-map exprs reached-state)))
 
-(defn schedule-solver
-  "Setup the timer to call solver periodically"
-  []
-  (timer/run-task! periodic-solver :by solver-timer :period 2000 :delay 1000))
+#_(defn schedule-solver
+    "Setup the timer to call solver periodically"
+    []
+    (timer/run-task! periodic-solver :by solver-timer :period 2000 :delay 1000))
 
 (defn stop-solver
   "Cancels the timer that calls solver periodically"
@@ -521,11 +527,11 @@
   (reset-solver-timer!)
   (println "solver stopped"))
 
-(defn check-and-report-infeasibility [& [event-handler]]
-  (let [tpn-map (get-in @state [:tpn-map])
-        exprs (get-exprs)
-        reached-state (dispatch/get-node-started-times tpn-map)]
-    (check-and-report-infeasibility-helper tpn-map exprs reached-state)))
+#_(defn check-and-report-infeasibility [& [event-handler]]
+    (let [tpn-map (get-in @state [:tpn-map])
+          exprs (get-exprs)
+          reached-state (dispatch/get-node-started-times tpn-map)]
+      (check-and-report-infeasibility-helper tpn-map exprs reached-state)))
 
 (defn show-tpn-execution-time []
   (let [tpn-map (:tpn-map @state)
@@ -588,8 +594,8 @@
         (stop-solver)
         (println "wait-until-tpn-finished is DONE")
         {:stop-tpn-processing (stop-tpn-processing?)
-         :tpn-finished (tpn-finished-execution?)
-         :timed-out (and until-abs-time-millis (>= until-abs-time-millis (System/currentTimeMillis)))})
+         :tpn-finished        (tpn-finished-execution?)
+         :timed-out           (and until-abs-time-millis (>= until-abs-time-millis (System/currentTimeMillis)))})
       (when more-wait?
         (Thread/sleep 1000)
         (recur)))))
@@ -680,14 +686,14 @@
     (when (dispatch/network-finished? tpn-net)
       (handle-tpn-finished netid))
     #_(send event-handler (fn [old-state]
-                          (when (dispatch/network-finished? tpn-net)
-                            (handle-tpn-finished netid)))))
+                            (when (dispatch/network-finished? tpn-net)
+                              (handle-tpn-finished netid)))))
   #_(if (stop-tpn-processing?)
-    ; stop when there are exceptions and flag is set
-    (do (stop-solver)
-        nil)
-    ; otherwise process
-    ))
+      ; stop when there are exceptions and flag is set
+      (do (stop-solver)
+          nil)
+      ; otherwise process
+      ))
 
 (defn monitor-mode-publish-dispatched [dispatched tpn-net]
   (pprint "Monitor mode publish dispatched before")
@@ -703,7 +709,7 @@
 
 (defn act-finished-handler [act-id act-state tpn-map m]
   (let [before (util/getTimeInSeconds)]
-    (println "begin -- act-finished-handler" act-id act-state (.getName (Thread/currentThread)))
+    ;(println "begin -- act-finished-handler" act-id act-state (.getName (Thread/currentThread)))
     ;(println "tpn-map")
     ;(pprint tpn-map)
     ;(println "m")
@@ -715,7 +721,7 @@
           :else
           (util/to-std-err (println "act-finished-handler unknown state" act-state)))
     ;(println "act-finished-handler" act-id act-state "process time" (float (- (tutil/getTimeInSeconds) before)))
-    (println "end -- activity execution time" act-id (:display-name (util/get-object act-id tpn-map)) (dispatch/get-activity-execution-time act-id))
+    (println "act-finished-handler end -- activity execution time" act-id (:display-name (util/get-object act-id tpn-map)) (dispatch/get-activity-execution-time act-id))
     ))
 
 (defn act-do-not-wait-handler [act-id act-state tpn-map m]
@@ -777,7 +783,7 @@
       (let [failed-ids (dispatch/derive-failed-objects (get-tpn) (:uid v))]
         #_(println "failed ids" (count failed-ids) failed-ids)
         (planviz/failed (get-planviz) failed-ids (get-network-id))
-        (dispatch/failed-objects failed-ids  (util/getTimeInSeconds))))))
+        (dispatch/failed-objects failed-ids (util/getTimeInSeconds))))))
 
 (defmethod handle-activity-message :cancelled [msg]
   ;(pprint msg)
@@ -822,9 +828,9 @@
    (handle-activity-message msg)
    (update-state! {:last-rmq-msg nil}))
 
-  ([old-state msg]                                          ;"When working on event-handler thread"
-    ;(println "event-handler process-activity-msg")
-   (process-activity-msg msg)))
+  #_([old-state msg]                                        ;"When working on event-handler thread"
+      ;(println "event-handler process-activity-msg")
+      (process-activity-msg msg)))
 
 (defn process-activity-started
   "Called when in monitor mode"
@@ -870,11 +876,11 @@
 
   (update-state! {:activity-started-listener (rmq/make-subscription "tpn.activity.active"
                                                                     (fn [_ _ ^bytes payload]
-                                                                                   (let [data (String. payload "UTF-8")
-                                                                                         m (tpn-json/map-from-json-str data)]
-                                                                                     (println "Got activity started message")
-                                                                                     (activity-started-handler m)
-                                                                                     ))
+                                                                      (let [data (String. payload "UTF-8")
+                                                                            m (tpn-json/map-from-json-str data)]
+                                                                        (println "Got activity started message")
+                                                                        (activity-started-handler m)
+                                                                        ))
                                                                     (get-channel (get-exchange-name))
                                                                     (:exchange @state)
                                                                     )}))
@@ -887,7 +893,7 @@
 (defn setup-broker-cb []
   (rmq/make-subscription routing-key-finished-message
                          (fn [_ _ ^bytes payload]
-                                        (act-finished-handler-broker-cb payload))
+                           (act-finished-handler-broker-cb payload))
                          (get-channel (get-exchange-name))
                          (:exchange @state)))
 
@@ -899,8 +905,8 @@
         dispatched (dispatch/dispatch-object network tpn-net {})]
     (println "Dispatching netid" netid (util/getCurrentThreadName))
     (publish-dispatched dispatched tpn-net)
-    (if (true? periodic-solver?)
-      (schedule-solver))))
+    #_(if (true? periodic-solver?)
+        (schedule-solver))))
 
 (defn dispatcher-plant-command-handler [payload]
   (let [cmd (rmq/payload-to-clj payload)]
@@ -917,17 +923,17 @@
           (util/to-std-err (println "Warn: Dispatching tpn but previous dispatch not finished." old-info)))
 
         (update-tpn-dispatch-state! new-state)
-        (dispatch-tpn (:tpn-map @state) false)      ;Do not run solver when bsm is dispatching tpn
+        (dispatch-tpn (:tpn-map @state) false)              ;Do not run solver when bsm is dispatching tpn
         (plant_i/started (:plant-interface @state) (name (:plant-id cmd)) (:id cmd) nil)
         #_(send event-handler
-              (fn [old-state]
-                (dispatch-tpn (:tpn-map @state) false)      ;Do not run solver when bsm is dispatching tpn
-                (plant_i/started (:plant-interface @state) (name (:plant-id cmd)) (:id cmd) nil)))))))
+                (fn [old-state]
+                  (dispatch-tpn (:tpn-map @state) false)    ;Do not run solver when bsm is dispatching tpn
+                  (plant_i/started (:plant-interface @state) (name (:plant-id cmd)) (:id cmd) nil)))))))
 
 (defn setup-dispatcher-command-listener []
   (rmq/make-subscription "dispatcher"
                          (fn [_ _ ^bytes payload]
-                                        (dispatcher-plant-command-handler payload))
+                           (dispatcher-plant-command-handler payload))
                          (get-channel (get-exchange-name))
                          (:exchange @state)))
 
@@ -1002,8 +1008,8 @@
   (let [exch (get-exchange-name)
         ch (get-channel exch)]
     (rmq/publish-object {:network-id net-id
-                        id           {:uid              id
-                                     :tpn-object-state state}}
+                         id          {:uid              id
+                                      :tpn-object-state state}}
                         routing-key ch exch)))
 
 (defn is-bsm-reply-msg [msg]
@@ -1049,7 +1055,7 @@
   (println "activity finished with fail state" ((:id msg) @state))
   (publish-activity-state ((:id msg) @state) :failed (get-network-id) routing-key-finished-message))
 
-(defmethod handle-plant-message :status-update [msg]);NOOP
+(defmethod handle-plant-message :status-update [msg])       ;NOOP
 
 (defn handle-plant-reply-msg [msg]
   ;(println "handle-plant-reply-msg")
@@ -1111,12 +1117,14 @@
   (async/>!! q (tpn-json/map-from-json-str (String. data "UTF-8"))))
 
 (defn setup-plant-interface [exch-name host port]
-  (update-state! {:plant-interface (plant/make-plant-connection exch-name {:host host :port port})})
+  ;(pprint @state)
   (if-not (:observations-q-setup @state)
     (do
+      (println "Setting up observations q")
+      (update-state! {:plant-interface (plant/make-plant-connection exch-name {:host host :port port})})
       (setup-recv-observations-from-q)
       (rmq/make-subscription "observations" (fn [_ _ data]
-                                             (put-rmq-message data observations-q))
+                                              (put-rmq-message data observations-q))
                              (get-in @state [:plant-interface :channel]) (:exchange @state)))
     (println "Observations q is already setup. ")))
 
@@ -1126,8 +1134,10 @@
   (swap! state assoc :planviz (planviz/make-rmq channel exchange)))
 
 (defn reset-state []
+  (println "reset-state" )
+  ;(pprint (keys @state))
   (let [repl (:repl @state)]
-    (reset! state {})
+    ;(reset! state {}); FIXME causes RMQ connections and call back to be persistent in background and asynchrony issues in repl!
     (update-state! {:repl repl})))
 
 (defn go [& [args]]
@@ -1146,10 +1156,15 @@
         no-tpn-pub (get-in parsed [:options :no-tpn-publish])
         auto-cancel (get-in parsed [:options :auto-cancel])
         wait-for-dispatch (get-in parsed [:options :wait-for-dispatch])
-        periodic-solver-disabled? (get-in parsed [:options :disable-periodic-solver])]
+        periodic-solver-disabled? (get-in parsed [:options :disable-periodic-solver])
+        force-plant-id-local (get-in parsed [:options :force-plant-id])]
 
     (if-not monitor-mode
       (def monitor-mode monitor))
+
+    (if (true? force-plant-id-local)
+      (def force-plant-id true))
+    (println "Will force plant id to be plant" force-plant-id)
 
     (def no-tpn-publish no-tpn-pub)
     (println "Will publish? tpn" (not no-tpn-publish))

@@ -11,9 +11,8 @@
   (:require
     [pamela.tools.utils.util :refer :all]
     [pamela.tools.utils.tpn-types :as tpn_types]
-    [pamela.tools.mct-planner.expr :as expr]
-    [pamela.tools.mct-planner.util :as rutil]
-    [pamela.tools.mct-planner.solver :as solver]
+    ;[pamela.tools.mct-planner.util :as rutil]
+    ;[pamela.tools.mct-planner.solver :as solver]
     [pamela.tools.utils.util :as util]
 
     [clojure.pprint :refer :all]
@@ -125,7 +124,7 @@
 (defn- get-node-id-2-var []
   (get-in tpn-info [:expr-details :nid-2-var]))
 
-(defn nid-2-var-range
+#_(defn nid-2-var-range
   "Return node-id to range var mapping"
   [nid-2-var]
   (reduce (fn [result [nid vars]]
@@ -153,7 +152,7 @@
             (conj result {(uid nid-2-var) time}))
           {} obj-times))
 
-(defn- run-solver []
+#_(defn- run-solver []
   (let [nid2-var (get-node-id-2-var)
         nid-2-var-range-x (nid-2-var-range nid2-var)
         reached-state (get-node-started-times (get-tpn))
@@ -185,7 +184,7 @@
       (pprint (:expr-values sample)))
     sample))
 
-(defn- get-choice-var [uid node-vars]
+#_(defn- get-choice-var [uid node-vars]
   (first (filter rutil/is-select-var? node-vars)))
 
 (defn- find-activity [src-uid target-uid tpn-map]
@@ -197,7 +196,7 @@
                       act-objs)]
     (first found)))
 
-(defn- get-choice-binding [uid expr-details sample tpn-map]
+#_(defn- get-choice-binding [uid expr-details sample tpn-map]
   ; return chosen activity
   (let [choice-var (get-choice-var uid (get-in expr-details [:nid-2-var uid]))
         ;bindings (:bindings sample)
@@ -217,7 +216,7 @@
   (if-not uid
     (debug-object (str "Cannot update run time state for nil uid " key " " value) nil update-dispatch-state!)
     (do (when (get-in @state [uid key])
-          (println "Warning tpn.dispatch/state has [uid key]" uid (get-in @state [uid key])))
+          (println "Warning tpn.dispatch/state has [uid key] new-val" uid (get-in @state [uid key]) value))
         (swap! state assoc-in [uid key] value))))
 
 (defn- simple-activity-dispatcher [act _ _]                 ;objs and m
@@ -401,8 +400,10 @@
         ;choice-act (choice-act-id objs)
         time (getTimeInSeconds m)
         m (conj m {:time time})
-        sample (run-solver)
-        choice-act (get-choice-binding (:uid obj) (:expr-details tpn-info) sample (get-tpn))]
+        ;sample (run-solver); FIXME TODO
+        ;choice-act (get-choice-binding (:uid obj) (:expr-details tpn-info) sample (get-tpn))
+        choice-act (get-object (first-choice (:activities obj) nil) (get-tpn))
+        ]
     (update-dispatch-state! (:uid obj) :start-time time)
     (conj {(:uid obj) {:uid (:uid obj) :tpn-object-state :reached}}
           (dispatch-object choice-act objs m))))
