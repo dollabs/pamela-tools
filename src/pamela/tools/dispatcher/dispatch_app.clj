@@ -673,11 +673,13 @@
 
     ; By now  dispatch/state should be uptodate. Check with constraint solver and update state constraint violations
     ;(println "Checking feasibility")
-    (send event-handler check-and-report-infeasibility)
+    #_(send event-handler check-and-report-infeasibility)
     ;(println "Checking feasibility -- done")
     ; See if end-node is reached
     ;(println "\nChecking network finished?")
-    (send event-handler (fn [old-state]
+    (when (dispatch/network-finished? tpn-net)
+      (handle-tpn-finished netid))
+    #_(send event-handler (fn [old-state]
                           (when (dispatch/network-finished? tpn-net)
                             (handle-tpn-finished netid)))))
   #_(if (stop-tpn-processing?)
@@ -879,7 +881,8 @@
 ; Callback To receive messages from RMQ
 (defn act-finished-handler-broker-cb [payload]
   ;(println "act-finished-handler-broker-cb recvd from rmq: " payload)
-  (send event-handler process-activity-msg (rmq/payload-to-clj payload)))
+  #_(send event-handler process-activity-msg (rmq/payload-to-clj payload))
+  (process-activity-msg (rmq/payload-to-clj payload)))
 
 (defn setup-broker-cb []
   (rmq/make-subscription routing-key-finished-message
@@ -914,7 +917,9 @@
           (util/to-std-err (println "Warn: Dispatching tpn but previous dispatch not finished." old-info)))
 
         (update-tpn-dispatch-state! new-state)
-        (send event-handler
+        (dispatch-tpn (:tpn-map @state) false)      ;Do not run solver when bsm is dispatching tpn
+        (plant_i/started (:plant-interface @state) (name (:plant-id cmd)) (:id cmd) nil)
+        #_(send event-handler
               (fn [old-state]
                 (dispatch-tpn (:tpn-map @state) false)      ;Do not run solver when bsm is dispatching tpn
                 (plant_i/started (:plant-interface @state) (name (:plant-id cmd)) (:id cmd) nil)))))))
@@ -959,7 +964,7 @@
     (reset-network tpn-net)
 
     ; Run constraint solver to render infeasibility
-    (send event-handler check-and-report-infeasibility)
+    #_(send event-handler check-and-report-infeasibility)
 
     (cond (true? monitor-mode)
           (println "In Monitor mode. Not dispatching")
@@ -1181,7 +1186,7 @@
                 (setup-plant-interface exch-name host port)
                 (setup-planviz-interface (:channel m) exch-name)
                 #_(print-state)
-                (setup-and-dispatch-tpn tpn-network (not periodic-solver-disabled?)))
+                (setup-and-dispatch-tpn tpn-network false #_(not periodic-solver-disabled?)))
             (do
               (println "Error creating rmq channel")
               (exit)))))
