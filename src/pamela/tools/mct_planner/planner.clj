@@ -46,6 +46,8 @@
             good-solution (first solutions)
             var-bindings (filter-temporal-choice-bindings (:bindings good-solution))
             new-bindings (var-to-node-bindings var-bindings var-to-nid-lu)]
+        (println "solutions" (count solutions))
+        (pprint (:metrics good-solution))
            {
             :tpn               tpn
             :previous-bindings bindings

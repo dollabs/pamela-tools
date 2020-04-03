@@ -21,7 +21,7 @@
             [pamela.tools.dispatcher.planviz :as planviz]
             [pamela.tools.utils.tpn-types :as tpn_type]
     ;[pamela.tools.mct-planner.solver :as solver]
-            [pamela.tools.mct-planner.expr :as expr]
+    ;[pamela.tools.mct-planner.expr :as expr]
     ;:reload-all ; Causes problems in repl with clojure multi methods.
             [clojure.string :as string]
             [ruiyun.tools.timer :as timer]
@@ -135,7 +135,7 @@
                         Will query BSM for values before dispatch" :default false]
                   ["-c" "--auto-cancel" "Will send cancel message to plant, when activities exceed their upper bounds" :default false]
                   ["-w" "--wait-for-dispatch" "Will wait for tpn dispatch command" :default false]
-                  [nil "--disable-periodic-solver" "Will not run solver periodically" :default false]
+                  [nil "--disable-periodic-solver" "Will not run solver periodically" :default true]
                   [nil "--force-plant-id" "Will override plant-id specified in TPN with plant" :default nil] ; For regression testing
                   ["-?" "--help"]])
 
@@ -289,20 +289,20 @@
           (query-belief-state plant act-id)))
       )))
 
-(defn get-exprs []
-  (get-in @state [:expr-details :all-exprs]))
+#_(defn get-exprs []
+    (get-in @state [:expr-details :all-exprs]))
 
-(defn get-nid-2-var []
-  (get-in @state [:expr-details :nid-2-var]))
+#_(defn get-nid-2-var []
+    (get-in @state [:expr-details :nid-2-var]))
 
-(defn get-tc-uid-for-expr
-  "Return temporal-constraint uid or nil"
-  [expr]
-  {:pre [(util/check-type pamela.tools.mct_planner.expr.expr expr)]} ;When this condition fails, code stops and no meaningful information is given.
-  ;(pprint expr)
-  ;(println (type expr) "\n" (instance? repr.expr.expr expr))
-  ;(println expr)
-  (get-in expr [:m :temporal-constraint]))
+#_(defn get-tc-uid-for-expr
+    "Return temporal-constraint uid or nil"
+    [expr]
+    {:pre [(util/check-type pamela.tools.mct_planner.expr.expr expr)]} ;When this condition fails, code stops and no meaningful information is given.
+    ;(pprint expr)
+    ;(println (type expr) "\n" (instance? repr.expr.expr expr))
+    ;(println expr)
+    (get-in expr [:m :temporal-constraint]))
 
 (defn get-reached-state [n]
   (nth (:reached-state @state) n))
@@ -898,8 +898,8 @@
                          (:exchange @state)))
 
 (defn dispatch-tpn [tpn-net periodic-solver?]
-  (reset-network tpn-net)
-  (Thread/sleep 200)
+  ;(reset-network tpn-net)
+  ;(Thread/sleep 200)
   (let [netid (:network-id tpn-net)
         network (netid tpn-net)
         dispatched (dispatch/dispatch-object network tpn-net {})]
@@ -937,38 +937,27 @@
                          (get-channel (get-exchange-name))
                          (:exchange @state)))
 
+(defn init-new-tpn [tpn]
+  (println "init-new-tpn")
+  (update-state! {:tpn-map tpn})
+
+  (when-not no-tpn-publish
+    (println "Publishing network")
+    (rmq/publish-object tpn "network.new" (get-channel (get-exchange-name)) (get-exchange-name)))
+
+  (reset-network tpn))
+
 (defn setup-and-dispatch-tpn [tpn-net periodic-solver?]
   #_(println "Dispatching TPN from file" file)
+  ; Sequnece of steps when dispatching TPN from file
 
-  ;; Guard so that we do not subscribe everytime we run from repl.
-  ;; We expect to run only once from main.
-  (when-not (:broker-subscription @state)
-    (println "Setting subscription")
-    ;(msg-serial-process)
-    (setup-broker-cb)
-    (if monitor-mode
-      (setup-activity-started-listener))
-    (update-state! {:broker-subscription true}))
-
-  (when-not (:dispatcher-plant @state)
-    (println "Setting dispatcher command listener")
-    (setup-dispatcher-command-listener)
-    (update-state! {:dispatcher-plant true}))
-
-  (update-state! {:tpn-map tpn-net})
-  (update-state! {:expr-details (expr/make-expressions-from-map tpn-net)})
-  (dispatch/set-tpn-info tpn-net (:expr-details @state))
+  #_(update-state! {:expr-details (expr/make-expressions-from-map tpn-net)})
+  #_(dispatch/set-tpn-info tpn-net (:expr-details @state))
 
   (let [exch-name (:exchange @state)
         channel (get-in @state [exch-name :channel])]
     (println "Use Ctrl-C to exit")
-
-    (when-not no-tpn-publish
-      (println "Publishing network")
-      (rmq/publish-object tpn-net "network.new" channel exch-name))
-
-    (reset-network tpn-net)
-
+    (init-new-tpn tpn-net)
     ; Run constraint solver to render infeasibility
     #_(send event-handler check-and-report-infeasibility)
 
@@ -979,8 +968,16 @@
           (println "Waiting for tpn dispatch command. Not dispatching")
 
           :else
-          (dispatch-tpn tpn-net periodic-solver?)
-          )))
+          (do (reset-network tpn-net)
+              (dispatch-tpn tpn-net periodic-solver?)))))
+
+(defn setup-and-dispatch-tpn-with-bindings [tpn bindings abs-dispatch-time]
+  (println "setup-and-dispatch-tpn-with-bindings")
+  (init-new-tpn tpn)
+  (update-state! {:tpn-bindings bindings :tpn-dispatch-time abs-dispatch-time})
+  (dispatch/set-node-bindings bindings)
+  (dispatch-tpn tpn false)
+  )
 
 (defn usage [options-summary]
   (->> ["TPN Dispatch Application"
@@ -1134,16 +1131,45 @@
   (swap! state assoc :planviz (planviz/make-rmq channel exchange)))
 
 (defn reset-state []
-  (println "reset-state" )
+  (println "reset-state")
   ;(pprint (keys @state))
   (let [repl (:repl @state)]
     ;(reset! state {}); FIXME causes RMQ connections and call back to be persistent in background and asynchrony issues in repl!
     (update-state! {:repl repl})))
 
-(defn go [& [args]]
+(defn init []
   (reset-state)
   (reset-agent-state)
-  (reset-rt-exception-state)
+  (reset-rt-exception-state))
+
+(defn setup-rmq [exch-name host port]
+  (let [m (rmq/make-channel exch-name {:host host :port port})]
+    (if (:channel m)
+      (do (update-state! {(:exchange m) m})
+          (setup-plant-interface exch-name host port)
+          (setup-planviz-interface (:channel m) exch-name)
+
+          ;; Guard so that we do not subscribe everytime we run from repl.
+          ;; We expect to run only once from main.
+          (when-not (:broker-subscription @state)
+            (println "Setting subscription")
+            ;(msg-serial-process)
+            (setup-broker-cb)
+
+            (if monitor-mode
+              (setup-activity-started-listener))
+            (update-state! {:broker-subscription true}))
+
+          (when-not (:dispatcher-plant @state)
+            (println "Setting dispatcher command listener")
+            (setup-dispatcher-command-listener)
+            (update-state! {:dispatcher-plant true}))
+          #_(print-state))
+      (do
+        (println "Error creating rmq channel")
+        (exit)))))
+
+(defn go [& [args]]
   (let [parsed (cli/parse-opts args cli-options)
         help (get-in parsed [:options :help])
         errors (:errors parsed)
@@ -1158,12 +1184,24 @@
         wait-for-dispatch (get-in parsed [:options :wait-for-dispatch])
         periodic-solver-disabled? (get-in parsed [:options :disable-periodic-solver])
         force-plant-id-local (get-in parsed [:options :force-plant-id])]
+    ;(pprint parsed)
+    (when help
+      (println (usage (:summary parsed)))
+      (exit))
+
+    (when errors
+      (println (usage (:summary parsed)))
+      (println (string/join \newline errors))
+      (exit))
+
+    (init)
 
     (if-not monitor-mode
       (def monitor-mode monitor))
 
     (if (true? force-plant-id-local)
-      (def force-plant-id true))
+      (def force-plant-id true)
+      (def force-plant-id false))
     (println "Will force plant id to be plant" force-plant-id)
 
     (def no-tpn-publish no-tpn-pub)
@@ -1176,39 +1214,20 @@
     (println "Applying hack? assume-string-as-field-reference" assume-string-as-field-reference)
 
     (println "periodic-solver-disabled?" periodic-solver-disabled?)
-    (when errors
-      (println (usage (:summary parsed)))
-      (println (string/join \newline errors))
-      (exit))
-
-    (when help
-      (println (usage (:summary parsed)))
-      (exit))
 
     #_(clojure.pprint/pprint parsed)
     #_(clojure.pprint/pprint tpn-network)
     (update-state! (:options parsed))
     #_(print-state)
 
+    (setup-rmq exch-name host port)
     (if tpn-file
       (do
-        ; solver exprs.
         (update-state! {:tpn-file tpn-file})
-        (println "Connecting to RMQ" host ":" port "topic" exch-name)
-        (let [m (rmq/make-channel exch-name {:host host :port port})]
-          (if (:channel m)
-            (do (update-state! {(:exchange m) m})
-                (setup-plant-interface exch-name host port)
-                (setup-planviz-interface (:channel m) exch-name)
-                #_(print-state)
-                (setup-and-dispatch-tpn tpn-network false #_(not periodic-solver-disabled?)))
-            (do
-              (println "Error creating rmq channel")
-              (exit)))))
+        (setup-and-dispatch-tpn tpn-network false #_(not periodic-solver-disabled?)))
       (do
-        (println (usage (:summary parsed)))
-        (println message)
-        (exit)
+        (println "No TPN File given! Will wait for external TPN.")
+
         ))))
 
 ; Dispatch TPN, Wait for TPN to finish and Exit.

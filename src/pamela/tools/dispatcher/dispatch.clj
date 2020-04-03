@@ -82,20 +82,26 @@
   (get-plant-dispatch-id-internal dispatch-state act-id))
 
 (defn reset-state []
+  (println "dispatch/reset-state")
   (reset! state {}))
 
-(defn set-tpn-info [tpn-map exprs-details]
-  (def tpn-info {:tpn-map      tpn-map
-                 :expr-details exprs-details}))             ;
+(defn set-node-bindings
+  "Provided by planner. Used to determine which choice to take"
+  [bindings]
+  (update-state [:tpn-bindings] bindings))
+
+#_(defn set-tpn-info [tpn-map exprs-details]
+    (def tpn-info {:tpn-map      tpn-map
+                   :expr-details exprs-details}))           ;
 
 (defn- get-tpn []
   (:tpn-map tpn-info))
 
-(defn- get-exprs []
-  (get-in tpn-info [:expr-details :all-exprs]))
+#_(defn- get-exprs []
+    (get-in tpn-info [:expr-details :all-exprs]))
 
-(defn- get-nid-2-var []
-  (get-in tpn-info [:expr-details :nid-2-var]))
+#_(defn- get-nid-2-var []
+    (get-in tpn-info [:expr-details :nid-2-var]))
 
 ;; Solver stuff
 (defn- node-object-started? [uid tpn-map]
@@ -121,22 +127,22 @@
                 result
                 )) {} reached)))
 
-(defn- get-node-id-2-var []
-  (get-in tpn-info [:expr-details :nid-2-var]))
+#_(defn- get-node-id-2-var []
+    (get-in tpn-info [:expr-details :nid-2-var]))
 
 #_(defn nid-2-var-range
-  "Return node-id to range var mapping"
-  [nid-2-var]
-  (reduce (fn [result [nid vars]]
-            (let [range-vars (filter (fn [var]
-                                       (rutil/is-range-var? var))
-                                     vars)
-                  range-var (first range-vars)]
+    "Return node-id to range var mapping"
+    [nid-2-var]
+    (reduce (fn [result [nid vars]]
+              (let [range-vars (filter (fn [var]
+                                         (rutil/is-range-var? var))
+                                       vars)
+                    range-var (first range-vars)]
 
-              (if-not (nil? range-var)
-                (conj result {nid range-var})
-                result)))
-          {} nid-2-var))
+                (if-not (nil? range-var)
+                  (conj result {nid range-var})
+                  result)))
+            {} nid-2-var))
 
 ; compute expr bindings from tpn state
 ;  * Find objects that have reached, and find their end-time
@@ -153,39 +159,39 @@
           {} obj-times))
 
 #_(defn- run-solver []
-  (let [nid2-var (get-node-id-2-var)
-        nid-2-var-range-x (nid-2-var-range nid2-var)
-        reached-state (get-node-started-times (get-tpn))
-        initial-bindings (temporal-bindings-from-tpn-state nid-2-var-range-x reached-state)
-        sample (if (pos? (count initial-bindings))
-                 (solver/solve (get-exprs) (get-nid-2-var) 1 initial-bindings)
-                 (solver/solve (get-exprs) (get-nid-2-var) 1))
+    (let [nid2-var (get-node-id-2-var)
+          nid-2-var-range-x (nid-2-var-range nid2-var)
+          reached-state (get-node-started-times (get-tpn))
+          initial-bindings (temporal-bindings-from-tpn-state nid-2-var-range-x reached-state)
+          sample (if (pos? (count initial-bindings))
+                   (solver/solve (get-exprs) (get-nid-2-var) 1 initial-bindings)
+                   (solver/solve (get-exprs) (get-nid-2-var) 1))
 
-        sample (first sample)
-        new-bindings (:bindings sample)]
-    ;(update-state [:sample] sample)
-    ;(let [prev-reached-state (:reached-state @state)
-    ;      updated (if prev-reached-state
-    ;                (conj prev-reached-state reached-state)
-    ;                [reached-state])]
-    ;  (update-state [:reached-state] updated))
+          sample (first sample)
+          new-bindings (:bindings sample)]
+      ;(update-state [:sample] sample)
+      ;(let [prev-reached-state (:reached-state @state)
+      ;      updated (if prev-reached-state
+      ;                (conj prev-reached-state reached-state)
+      ;                [reached-state])]
+      ;  (update-state [:reached-state] updated))
 
-    ;(collect-bindings initial-bindings new-bindings)
+      ;(collect-bindings initial-bindings new-bindings)
 
-    (when debug
-      (println "expr initial bindings")
-      (pprint initial-bindings)
-      (println "expr new bindings")
-      (pprint new-bindings)
+      (when debug
+        (println "expr initial bindings")
+        (pprint initial-bindings)
+        (println "expr new bindings")
+        (pprint new-bindings)
 
-      ;(println "normal uids:" normal-tc-ids)
-      ;(println "Failed expression ids:" failed-tc-ids)
-      (println "Bound expr count: " (count (:expr-values sample)))
-      (pprint (:expr-values sample)))
-    sample))
+        ;(println "normal uids:" normal-tc-ids)
+        ;(println "Failed expression ids:" failed-tc-ids)
+        (println "Bound expr count: " (count (:expr-values sample)))
+        (pprint (:expr-values sample)))
+      sample))
 
 #_(defn- get-choice-var [uid node-vars]
-  (first (filter rutil/is-select-var? node-vars)))
+    (first (filter rutil/is-select-var? node-vars)))
 
 (defn- find-activity [src-uid target-uid tpn-map]
   (let [acts (:activities (get-object src-uid tpn-map))
@@ -197,14 +203,29 @@
     (first found)))
 
 #_(defn- get-choice-binding [uid expr-details sample tpn-map]
-  ; return chosen activity
-  (let [choice-var (get-choice-var uid (get-in expr-details [:nid-2-var uid]))
-        ;bindings (:bindings sample)
-        bound-var (get-in sample [:bindings choice-var])
-        bound-node (get-in expr-details [:var-2-nid bound-var])]
-    (find-activity uid bound-node tpn-map)))
+    ; return chosen activity
+    (let [choice-var (get-choice-var uid (get-in expr-details [:nid-2-var uid]))
+          ;bindings (:bindings sample)
+          bound-var (get-in sample [:bindings choice-var])
+          bound-node (get-in expr-details [:var-2-nid bound-var])]
+      (find-activity uid bound-node tpn-map)))
 ;; Solver stuff ends
 
+(defn get-choice-binding
+  "Using bindings provided by external planner
+  Return act-id"
+  [src-nid target-nid tpn-map]
+  ;(println "get-choice-binding" src-nid target-nid)
+  (let [src-acts (:activities (get-object src-nid tpn-map))
+        act-ids (filter (fn [act-id]
+                          (= target-nid (:end-node (get-object act-id tpn-map)))
+                          ) src-acts)
+        ]
+    ;(println "outgoing acts" act-ids)
+    (when (not= 1 (count act-ids))
+      (println "get-choice-bindings for " src-nid target-nid) "there should be only 1 activity
+      Got " act-ids)
+    (first act-ids)))
 
 (defn- reset-state-network [ids]
   "Walk the TPN for the given network and remove all objects from state"
@@ -400,10 +421,21 @@
         ;choice-act (choice-act-id objs)
         time (getTimeInSeconds m)
         m (conj m {:time time})
-        ;sample (run-solver); FIXME TODO
-        ;choice-act (get-choice-binding (:uid obj) (:expr-details tpn-info) sample (get-tpn))
-        choice-act (get-object (first-choice (:activities obj) nil) (get-tpn))
+        first-choice-act (get-object (first-choice (:activities obj) nil) objs)
+        bindings (:tpn-bindings @state)
+        ;_ (pprint @state)
+        #_ (do (println "Bindings")
+              (pprint bindings))
+        choice-act (if bindings
+                     (get-object (get-choice-binding
+                                   (:uid obj)
+                                   (get-in bindings [(:uid obj) :to-node])
+                                   objs)
+                                 objs)
+                     (do (println "Bindings from planner not available. Using first choice")
+                         first-choice-act))
         ]
+    ;(println "choice-act" choice-act )
     (update-dispatch-state! (:uid obj) :start-time time)
     (conj {(:uid obj) {:uid (:uid obj) :tpn-object-state :reached}}
           (dispatch-object choice-act objs m))))
@@ -471,6 +503,7 @@
         time (getTimeInSeconds me)
         me (conj me {:time time})]
     (println "dispatching begin node")
+
     (dispatch-object begin-obj objs me)))
 
 (defn- print-node-run-state [val]
