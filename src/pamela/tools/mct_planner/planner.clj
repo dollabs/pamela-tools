@@ -38,31 +38,6 @@
                     :else res)))
           {} var-bindings))
 
-(defn infinity-to-string
-  "If any of the element is Infinity or -Infinity, stringify it"
-  [bindings]
-  (w/postwalk (fn [x]
-                (cond (= x java.lang.Double/POSITIVE_INFINITY)
-                      (str java.lang.Double/POSITIVE_INFINITY)
-
-                      (= x java.lang.Double/NEGATIVE_INFINITY)
-                      (str java.lang.Double/NEGATIVE_INFINITY)
-
-                      :else x))
-              bindings))
-
-(defn string-to-infinity
-  "If any of the element is \"Infinity\" or \"-Infinity\" then convert it to corresponding
-  java.lang.double version"
-  [bindings]
-  (w/postwalk (fn [x]
-                (cond (= x (str java.lang.Double/POSITIVE_INFINITY))
-                      java.lang.Double/POSITIVE_INFINITY
-                      (= x (str java.lang.Double/NEGATIVE_INFINITY))
-                      java.lang.Double/NEGATIVE_INFINITY
-                      :else x))
-              bindings))
-
 (defn solve [tpn bindings]
   (let [exprs-details (expr/make-expressions-from-map tpn)
         exprs (:all-exprs exprs-details)
