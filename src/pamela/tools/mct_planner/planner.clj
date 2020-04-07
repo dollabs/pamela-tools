@@ -6,57 +6,83 @@
 ; the file LICENSE at the root of this distribution.
 
 (ns pamela.tools.mct-planner.planner
-    ;(:gen-class)
-    (:require [clojure.pprint :refer :all]
-      [pamela.tools.mct-planner.solver :as solver]
-      [pamela.tools.mct-planner.expr :as expr]
-      [pamela.tools.mct-planner.util :as ru]))
+  ;(:gen-class)
+  (:require [clojure.pprint :refer :all]
+            [pamela.tools.mct-planner.solver :as solver]
+            [pamela.tools.mct-planner.expr :as expr]
+            [pamela.tools.mct-planner.util :as ru]
+            [clojure.walk :as w]))
 
 (defn filter-temporal-choice-bindings [expr-var-bindings]
-      (reduce (fn [res [varid value]]
-                  (conj res (if (or (ru/is-range-var? varid)
-                                    (ru/is-select-var? varid))
-                              {varid value}
-                              {}))) {} expr-var-bindings))
+  (reduce (fn [res [varid value]]
+            (conj res (if (or (ru/is-range-var? varid)
+                              (ru/is-select-var? varid))
+                        {varid value}
+                        {}))) {} expr-var-bindings))
 
 
 (defn var-to-node-bindings [var-bindings var-2-nid-lu]
-      ;(println "var-bindings")
-      ;(pprint var-bindings)
-      ;(println "var-2nid-lu")
-      ;(pprint var-2-nid-lu)
-      (reduce (fn [res [key val]]
-                  ;(pprint res)
-                  ;(println key val)
-                  ;(println)
-                  (let [sel-val (if (and (ru/is-select-var? key) (get var-2-nid-lu val))
-                                  (get var-2-nid-lu val))]
-                       ;(println "sel-val" sel-val)
-                       (cond sel-val (assoc-in res [(get var-2-nid-lu key) :to-node] (get var-2-nid-lu val))
-                             (and (not (ru/is-select-var? key)) (nil? sel-val)) (assoc-in res [(get var-2-nid-lu key) :temporal-value] val)
-                             :else res)))
-              {} var-bindings))
+  ;(println "var-bindings")
+  ;(pprint var-bindings)
+  ;(println "var-2nid-lu")
+  ;(pprint var-2-nid-lu)
+  (reduce (fn [res [key val]]
+            ;(pprint res)
+            ;(println key val)
+            ;(println)
+            (let [sel-val (if (and (ru/is-select-var? key) (get var-2-nid-lu val))
+                            (get var-2-nid-lu val))]
+              ;(println "sel-val" sel-val)
+              (cond sel-val (assoc-in res [(get var-2-nid-lu key) :to-node] (get var-2-nid-lu val))
+                    (and (not (ru/is-select-var? key)) (nil? sel-val)) (assoc-in res [(get var-2-nid-lu key) :temporal-value] val)
+                    :else res)))
+          {} var-bindings))
+
+(defn infinity-to-string
+  "If any of the element is Infinity or -Infinity, stringify it"
+  [bindings]
+  (w/postwalk (fn [x]
+                (cond (= x java.lang.Double/POSITIVE_INFINITY)
+                      (str java.lang.Double/POSITIVE_INFINITY)
+
+                      (= x java.lang.Double/NEGATIVE_INFINITY)
+                      (str java.lang.Double/NEGATIVE_INFINITY)
+
+                      :else x))
+              bindings))
+
+(defn string-to-infinity
+  "If any of the element is \"Infinity\" or \"-Infinity\" then convert it to corresponding
+  java.lang.double version"
+  [bindings]
+  (w/postwalk (fn [x]
+                (cond (= x (str java.lang.Double/POSITIVE_INFINITY))
+                      java.lang.Double/POSITIVE_INFINITY
+                      (= x (str java.lang.Double/NEGATIVE_INFINITY))
+                      java.lang.Double/NEGATIVE_INFINITY
+                      :else x))
+              bindings))
 
 (defn solve [tpn bindings]
-      (let [exprs-details (expr/make-expressions-from-map tpn)
-            exprs (:all-exprs exprs-details)
-            nid-to-var (:nid-2-var exprs-details)
-            var-to-nid-lu (:var-2-nid exprs-details)
-            solutions (solver/solve exprs nid-to-var 1 bindings)
-            good-solution (first solutions)
-            var-bindings (filter-temporal-choice-bindings (:bindings good-solution))
-            new-bindings (var-to-node-bindings var-bindings var-to-nid-lu)]
-        (println "solutions" (count solutions))
-        (pprint (:metrics good-solution))
-           {
-            :tpn               tpn
-            :previous-bindings bindings
-            :bindings          new-bindings
-            ; For my debug purpose
-            ;:var-bindings var-bindings
-            ;:expr-details exprs-details
-            ;:solution     good-solution
-            }))
+  (let [exprs-details (expr/make-expressions-from-map tpn)
+        exprs (:all-exprs exprs-details)
+        nid-to-var (:nid-2-var exprs-details)
+        var-to-nid-lu (:var-2-nid exprs-details)
+        solutions (solver/solve exprs nid-to-var 1 bindings)
+        good-solution (first solutions)
+        var-bindings (filter-temporal-choice-bindings (:bindings good-solution))
+        new-bindings (var-to-node-bindings var-bindings var-to-nid-lu)]
+    (println "solutions" (count solutions))
+    (pprint (:metrics good-solution))
+    {
+     :tpn               tpn
+     :previous-bindings bindings
+     :bindings          new-bindings
+     ; For my debug purpose
+     ;:var-bindings var-bindings
+     ;:expr-details exprs-details
+     ;:solution     good-solution
+     }))
 
 ;(pprint ["Bindings" (-> x :solution :bindings)
 ;         "Node bindings" (-> x :solution :node-bindings)

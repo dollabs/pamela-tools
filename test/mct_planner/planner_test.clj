@@ -45,3 +45,10 @@
     (println "Testing with planner bindings" tpn)
     (plan-and-dispatch tpn)
     ))
+
+; FIXME
+#_(defn test-bindings-to-json []
+    (planner/infinity-to-string {:node-14 {:temporal-value [0 Infinity]},
+                                 :node-6  {:temporal-value 0},
+                                 :node-1  {:temporal-value [0 Infinity]},
+                                 :node-10 {:temporal-value [0 Infinity]}}))
