@@ -11,20 +11,26 @@
                                  [])
                      ])
 
-(defpclass parallel-choice-tpn [plant]
+(defpclass tpn [plant]
            :meta {:doc "Simple Parallel with 2 Activities"}
-           :methods [(defpmethod simple-parallel-tpn
+           :fields {plnt (plant)}
+           :methods [(defpmethod main
                                  {:doc "Simple Parallel TPN"}
                                  []
 
                                  (sequence
                                    (parallel
-                                     (plant$bounded)
-                                     (plant$unbounded))
+                                     (plnt.bounded)
+                                     (plnt.unbounded))
                                    (choose
-                                     (choice (plant$bounded))
-                                     (choice (plant$unbounded)))
+                                     (choice (plnt.bounded))
+                                     (choice (plnt.unbounded)))
                                    )
 
-                                 )]
-           )
+                                 )])
+;  pamela -i parallel-and-choice.pamela -o parallel-and-choice.json -c main:tpn:main tpn
+(defpclass main []
+           :fields {plnt (plant)
+                    tpn  (tpn plnt)}
+           :methods [(defpmethod main []
+                                 (tpn.main))])
