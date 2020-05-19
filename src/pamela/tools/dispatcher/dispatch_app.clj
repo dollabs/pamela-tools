@@ -78,11 +78,11 @@
     (restart-agent event-handler {} :clear-actions true)))
 
 ;;; Solver timer helpers
-(defn make-solver-timer []
+#_(defn make-solver-timer []
   (timer/deamon-timer "Solver timer"))
 
-(defonce solver-timer (make-solver-timer))
-(def solver-period 2000)
+#_(defonce solver-timer (make-solver-timer))
+#_(def solver-period 2000)
 (def throttle-time 1000)
 
 (defn reset-solver-timer! []
@@ -137,6 +137,7 @@
                   ["-w" "--wait-for-dispatch" "Will wait for tpn dispatch command" :default false]
                   [nil "--disable-periodic-solver" "Will not run solver periodically" :default true]
                   [nil "--force-plant-id" "Will override plant-id specified in TPN with plant" :default nil] ; For regression testing
+                  [nil "--dispatch-all-choices" "Will dispatch all choices" :default false]
                   ["-?" "--help"]])
 
 #_(defn parse-summary [args]
@@ -324,7 +325,7 @@
                                                          "plant")
                             disp-id time-millis)))))))
 
-(defn throttle-feasibility-helper []
+#_(defn throttle-feasibility-helper []
   (let [last-time (:last-solver-time @state)
         elapsed (if last-time
                   (- (System/currentTimeMillis) last-time)
@@ -520,7 +521,7 @@
     []
     (timer/run-task! periodic-solver :by solver-timer :period 2000 :delay 1000))
 
-(defn stop-solver
+#_(defn stop-solver
   "Cancels the timer that calls solver periodically"
   []
   (timer/cancel! solver-timer)
@@ -591,7 +592,7 @@
       ;(println "more wait" more-wait? "\n")
       (when-not more-wait?
         (println "wait-until-tpn-finished Stopping solver")
-        (stop-solver)
+        ;(stop-solver)
         (println "wait-until-tpn-finished is DONE")
         {:stop-tpn-processing (stop-tpn-processing?)
          :tpn-finished        (tpn-finished-execution?)
@@ -614,7 +615,7 @@
   (println "Network end-node reached. TPN Execution finished" netid)
   (show-activity-execution-times)
   (show-tpn-execution-time)
-  (stop-solver)
+  ;(stop-solver)
   (let [old-state (get-tpn-dispatch-state)
         old-info (last old-state)
         new-info (conj old-info {:end-time (util/getTimeInSeconds)})
@@ -1183,7 +1184,9 @@
         auto-cancel (get-in parsed [:options :auto-cancel])
         wait-for-dispatch (get-in parsed [:options :wait-for-dispatch])
         periodic-solver-disabled? (get-in parsed [:options :disable-periodic-solver])
-        force-plant-id-local (get-in parsed [:options :force-plant-id])]
+        force-plant-id-local (get-in parsed [:options :force-plant-id])
+        dispatch-all-choices (get-in parsed [:options :dispatch-all-choices])
+        ]
     ;(pprint parsed)
     (when help
       (println (usage (:summary parsed)))
@@ -1194,6 +1197,8 @@
       (println (string/join \newline errors))
       (exit))
 
+    (println "dispatch-all-choices" dispatch-all-choices)
+    (dispatch/set-dispatch-all-choices dispatch-all-choices)
     (init)
 
     (if-not monitor-mode

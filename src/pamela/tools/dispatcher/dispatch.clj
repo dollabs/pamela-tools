@@ -24,6 +24,10 @@
 
 (defonce state (atom {}))
 (defonce tpn-info {})
+(defonce dispatch-all-choices false)
+
+(defn set-dispatch-all-choices [val]
+  (def dispatch-all-choices val))
 
 (defn- update-state
   "uses update-in to update state atom"
@@ -378,15 +382,15 @@
   "Helper function to dispatch all the activities of the node
   Returns the list of activities dispatched."
   #_(println "dispatch-object-state" (:uid node) (:tpn-type node))
-  (let [time (getTimeInSeconds m)
-        m (conj m (:time time))]
-    (if (node-dispatched? node @state objs)
-      (debug-object "Already dispatched node. Not dispatching" node dispatch-object)
-      (do
-        (update-dispatch-state! (:uid node) :start-time time)
-        #_((:dispatch-listener m) node :reached)
-        (dispatch-activities (:activities node) objs m))))
-  )
+  (conj {(:uid node) {:uid (:uid node) :tpn-object-state :reached}}
+        (let [time (getTimeInSeconds m)
+              m (conj m (:time time))]
+          (if (node-dispatched? node @state objs)
+            (debug-object "Already dispatched node. Not dispatching" node dispatch-object)
+            (do
+              (update-dispatch-state! (:uid node) :start-time time)
+              #_((:dispatch-listener m) node :reached)
+              (dispatch-activities (:activities node) objs m))))))
 
 ; Dispatch methods
 (defmulti dispatch-object
@@ -406,49 +410,48 @@
 
 (defmethod dispatch-object :p-begin [obj objs m]
   #_(println "p-begin" (:uid obj) (:tpn-type obj) "-----------")
-  (conj {(:uid obj) {:uid (:uid obj) :tpn-object-state :reached}}
-        (dispatch-object-state obj objs m)))
+  (dispatch-object-state obj objs m))
 
 (defmethod dispatch-object :p-end [obj objs m]
   #_(println "p-end" (:uid obj) (:tpn-type obj) "-----------")
-  (conj {(:uid obj) {:uid (:uid obj) :tpn-object-state :reached}}
-        (dispatch-object-state obj objs m)))
+  (dispatch-object-state obj objs m))
 
 (defmethod dispatch-object :c-begin [obj objs m]
   #_(println "c-begin" (:uid obj) (:tpn-type obj) "-----------")
-  (let [;choice-fn (:choice-fn m)
-        ;choice-act-id (choice-fn (:activities obj) m)
-        ;choice-act (choice-act-id objs)
-        time (getTimeInSeconds m)
-        m (conj m {:time time})
-        first-choice-act (get-object (first-choice (:activities obj) nil) objs)
-        bindings (:tpn-bindings @state)
-        ;_ (pprint @state)
-        #_ (do (println "Bindings")
-              (pprint bindings))
-        choice-act (if bindings
-                     (get-object (get-choice-binding
-                                   (:uid obj)
-                                   (get-in bindings [(:uid obj) :to-node])
+
+  (if dispatch-all-choices
+    (dispatch-object-state obj objs m)
+    (let [;choice-fn (:choice-fn m)
+          ;choice-act-id (choice-fn (:activities obj) m)
+          ;choice-act (choice-act-id objs)
+          time (getTimeInSeconds m)
+          m (conj m {:time time})
+          first-choice-act (get-object (first-choice (:activities obj) nil) objs)
+          bindings (:tpn-bindings @state)
+          ;_ (pprint @state)
+          #_(do (println "Bindings")
+                (pprint bindings))
+          choice-act (if bindings
+                       (get-object (get-choice-binding
+                                     (:uid obj)
+                                     (get-in bindings [(:uid obj) :to-node])
+                                     objs)
                                    objs)
-                                 objs)
-                     (do (println "Bindings from planner not available. Using first choice")
-                         first-choice-act))
-        ]
-    ;(println "choice-act" choice-act )
-    (update-dispatch-state! (:uid obj) :start-time time)
-    (conj {(:uid obj) {:uid (:uid obj) :tpn-object-state :reached}}
-          (dispatch-object choice-act objs m))))
+                       (do (println "Bindings from planner not available. Using first choice")
+                           first-choice-act))
+          ]
+      ;(println "choice-act" choice-act )
+      (update-dispatch-state! (:uid obj) :start-time time)
+      (conj {(:uid obj) {:uid (:uid obj) :tpn-object-state :reached}}
+            (dispatch-object choice-act objs m)))))
 
 (defmethod dispatch-object :c-end [obj objs m]
   #_(println "c-end" (:uid obj) (:tpn-type obj) "-----------")
-  (conj {(:uid obj) {:uid (:uid obj) :tpn-object-state :reached}}
-        (dispatch-object-state obj objs m)))
+  (dispatch-object-state obj objs m))
 
 (defmethod dispatch-object :state [obj objs m]
   ;(println "dispatch-object state" (:uid obj) (:tpn-type obj) "-----------")
-  (conj {(:uid obj) {:uid (:uid obj) :tpn-object-state :reached}}
-        (dispatch-object-state obj objs m)))
+  (dispatch-object-state obj objs m))
 
 (defmethod dispatch-object :activity [obj objs m]
   (let [act-state (check-activity-state obj @state)
@@ -673,7 +676,8 @@
   "When a activity is failed, corresponding end-node is failed.
    all not-dispatched activities and their end nodes are failed.
    "
-
+  ; TODO When dispatching multiple choices, if all choices are failed then only the choice node is failed
+  ; if a choice-end node is failed, then only corresponding forward path is failed.
   [tpn failed-act-id]
   {:pre [(map? tpn)]}
   (let [undispatched (into {} (filter (fn [[uid state]]
