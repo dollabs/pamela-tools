@@ -355,3 +355,83 @@
                       java.lang.Double/NEGATIVE_INFINITY
                       :else x))
               bindings))
+
+(defn is-node "Return node type"
+  [obj]
+  ((:tpn-type obj) tpn_types/nodetypes))
+
+(defn is-edge "Return node type"
+  [obj]
+  ((:tpn-type obj) tpn_types/edgetypes))
+
+(defn collect-objects-in-bfs-xx [tpn]
+  (let [begin-node (:uid (get-begin-node tpn))]
+    (loop [objs []
+           handled #{}
+           remain [begin-node]]
+      (if (nil? (first remain))
+        objs
+        (let [obj (get-object (first remain) tpn)
+              is_node ((:tpn-type obj) tpn_types/nodetypes)
+              is_edge ((:tpn-type obj) tpn_types/edgetypes)
+              next-objs (cond is_node (:activities obj)
+                              is_edge [(:end-node obj)]
+                              :else [])]
+          (pprint obj)
+          (println (:uid obj))
+          (println is_node is_edge)
+          (println objs)
+          (println remain)
+          (println "-----")
+          (recur (if (contains? handled (:uid obj))
+                   objs
+                   (conj objs (:uid obj)))
+                 (conj handled (:uid obj))
+                 (into (into [] (rest remain)) next-objs)))))))
+
+(defn make-bfs-walk
+  "Return list of collected and next set of objects"
+  [tpn]
+  (let [handled (atom #{})]
+    (fn [uid]
+      ;(println uid)
+      ;(println "handled" @handled)
+      (if-not (contains? @handled uid)
+        (let [obj (get-object uid tpn)
+              is_node ((:tpn-type obj) tpn_types/nodetypes)
+              is_edge ((:tpn-type obj) tpn_types/edgetypes)
+              next-objs (cond is_node (:activities obj)
+                              is_edge [(:end-node obj)]
+                              :else [])]
+          ;(def handled (conj handled uid))
+          (swap! handled conj uid)
+          ;(println "handled 2" @handled )
+          [[uid] (into [] next-objs)])))))
+
+(defn walk [obj fn]
+  (fn obj))
+
+(defn walker [begin fn]
+  "fn must return a vector of two vectors
+  first vector should be elements that are `accumulated`
+  second vector should be elements that the function has determined for further processing to let
+  walker continue walking the graph
+  "
+  (loop [collected []
+         remain [begin]]
+    ;(println "collected" collected)
+    ;(println "remain" remain)
+    (if (nil? (first remain))
+      collected
+      (let [[collected-w remain-w] (walk (first remain) fn)]
+        ;(println "collected-w" collected-w)
+        ;(println "remain-w" remain-w)
+        ;(println "-----")
+        (recur (into collected collected-w) (into (into [] (rest remain)) remain-w))
+        ))))
+
+(defn walk-tpn [tpn fn]
+  (walker (:uid (get-begin-node tpn)) fn))
+
+(defn collect-tpn-ids [tpn]
+  (walker (:uid (get-begin-node tpn)) (make-bfs-walk tpn)))
