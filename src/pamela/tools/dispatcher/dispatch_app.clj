@@ -558,10 +558,11 @@
       #_(println "handle-activity-message :failed" (:uid v))
       #_(println (select-keys @state [:choice-fn]))
       (println "Not dispatching rest of activities as activity failed" (:uid v) (:display-name (util/get-object (:uid v) (:tpn-map @state))))
-      (let [failed-ids (dispatch/derive-failed-objects (get-tpn) (:uid v))]
+
+      (let [failed-ids (dispatch/activity-failed (:uid v) (get-tpn))]
         #_(println "failed ids" (count failed-ids) failed-ids)
         (planviz/failed (get-planviz) failed-ids (get-network-id))
-        (dispatch/failed-objects failed-ids (util/getTimeInSeconds))))))
+        #_(dispatch/failed-objects failed-ids (util/getTimeInSeconds))))))
 
 (defmethod handle-activity-message :cancelled [msg]
   ;(pprint msg)

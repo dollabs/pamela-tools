@@ -11,8 +11,6 @@
   (:require
     [pamela.tools.utils.util :refer :all]
     [pamela.tools.utils.tpn-types :as tpn_types]
-    ;[pamela.tools.mct-planner.util :as rutil]
-    ;[pamela.tools.mct-planner.solver :as solver]
     [pamela.tools.utils.util :as util]
 
     [clojure.pprint :refer :all]
@@ -23,7 +21,7 @@
 (declare dispatch-object)
 
 (defonce state (atom {}))
-(defonce tpn-info {})
+;(defonce tpn-info {})
 (defonce dispatch-all-choices false)
 
 (defn set-dispatch-all-choices [val]
@@ -74,7 +72,7 @@
     (doseq [uid uids]
       (cancel dispatch-state uid t))))
 
-(defn failed-objects [uids time]
+(defn- failed-objects [uids time]
   (let [t (getTimeInSeconds {:time time})]
     (doseq [uid uids]
       (failed dispatch-state uid t))))
@@ -98,8 +96,8 @@
     (def tpn-info {:tpn-map      tpn-map
                    :expr-details exprs-details}))           ;
 
-(defn- get-tpn []
-  (:tpn-map tpn-info))
+#_(defn- get-tpn []
+    (:tpn-map tpn-info))
 
 #_(defn- get-exprs []
     (get-in tpn-info [:expr-details :all-exprs]))
@@ -162,38 +160,6 @@
             (conj result {(uid nid-2-var) time}))
           {} obj-times))
 
-#_(defn- run-solver []
-    (let [nid2-var (get-node-id-2-var)
-          nid-2-var-range-x (nid-2-var-range nid2-var)
-          reached-state (get-node-started-times (get-tpn))
-          initial-bindings (temporal-bindings-from-tpn-state nid-2-var-range-x reached-state)
-          sample (if (pos? (count initial-bindings))
-                   (solver/solve (get-exprs) (get-nid-2-var) 1 initial-bindings)
-                   (solver/solve (get-exprs) (get-nid-2-var) 1))
-
-          sample (first sample)
-          new-bindings (:bindings sample)]
-      ;(update-state [:sample] sample)
-      ;(let [prev-reached-state (:reached-state @state)
-      ;      updated (if prev-reached-state
-      ;                (conj prev-reached-state reached-state)
-      ;                [reached-state])]
-      ;  (update-state [:reached-state] updated))
-
-      ;(collect-bindings initial-bindings new-bindings)
-
-      (when debug
-        (println "expr initial bindings")
-        (pprint initial-bindings)
-        (println "expr new bindings")
-        (pprint new-bindings)
-
-        ;(println "normal uids:" normal-tc-ids)
-        ;(println "Failed expression ids:" failed-tc-ids)
-        (println "Bound expr count: " (count (:expr-values sample)))
-        (pprint (:expr-values sample)))
-      sample))
-
 #_(defn- get-choice-var [uid node-vars]
     (first (filter rutil/is-select-var? node-vars)))
 
@@ -205,15 +171,6 @@
                         (= target-uid (:uid (get-end-node-activity act tpn-map))))
                       act-objs)]
     (first found)))
-
-#_(defn- get-choice-binding [uid expr-details sample tpn-map]
-    ; return chosen activity
-    (let [choice-var (get-choice-var uid (get-in expr-details [:nid-2-var uid]))
-          ;bindings (:bindings sample)
-          bound-var (get-in sample [:bindings choice-var])
-          bound-node (get-in expr-details [:var-2-nid bound-var])]
-      (find-activity uid bound-node tpn-map)))
-;; Solver stuff ends
 
 (defn get-choice-binding
   "Using bindings provided by external planner
@@ -247,7 +204,6 @@
 (defn- simple-activity-dispatcher [act _ _]                 ;objs and m
   (println "simple-activity-dispatcher" (:uid act) "type" (:tpn-type act) (:name act)))
 
-;TODO deprecated in favor of solver providing the chosen path
 (defn- first-choice [activities _]
   "Return the first activity"
   (if (empty? activities)
@@ -533,6 +489,10 @@
 
 ;;; helpful functions used in conjunction with constraint solver.
 
+(defn print-state-internal [tpn]
+  "print internal state of @state"
+  (print-state (util/collect-tpn-ids tpn) @state tpn))
+
 (defn- object-reached? [uid tpn-map]
   (let [obj (uid tpn-map)
         known-object? (and (contains? @state uid)
@@ -632,12 +592,11 @@
           (util/to-std-err (println "derive-obj-state unkown tpn-type for obj" obj))
           {})))
 
-; TODO Add to some protocol
-(defn get-tpn-state [tpn]
-  (let [objs (get-nodes-or-activities tpn)]
-    (reduce (fn [res obj]
-              (conj res (derive-obj-state obj @state tpn))
-              ) {} (vals objs))))
+#_(defn get-tpn-state [tpn]                                 ; not used ; TODO Add to some protocol
+    (let [objs (get-nodes-or-activities tpn)]
+      (reduce (fn [res obj]
+                (conj res (derive-obj-state obj @state tpn))
+                ) {} (vals objs))))
 
 (defn all-activities-finished-or-failed? [state tpn]
   (let [acts (filter (fn [[uid act-obj]]
@@ -672,7 +631,67 @@
          #_(all-activities-finished-or-failed? @state tpn-net) ;does not work for choice nodes.
          )))
 
-(defn derive-failed-objects
+(defn collect-pending-finished [node state tpn]
+  (reduce (fn [res incoming-act]
+            (let [act-state (check-activity-state (get-object incoming-act tpn) state)]
+              ;(println incoming-act act-state)
+              (if (or (= :finished act-state)
+                          (= :cancelled act-state))
+                (update-in res [:finished] conj incoming-act)
+                (update-in res [:pending] conj incoming-act))))
+          {:finished [] :pending []} (:incidence-set node)))
+
+(defn collect-failed [uids state]
+  (reduce (fn [res uid]
+            (let [ftime (get-in state [uid :fail-time])]
+              ;(println "failed" uid ftime)
+              (if (nil? ftime)
+                res
+                (conj res uid))))
+          #{} uids))
+
+(defn make-fail-walker [tpn fail-time]
+  " All edges are assumed to be failed.
+    If a node is determined to be not-failed,
+    then it won't be added to `accumulated` list and will return empty list for `next-objects`
+    to stop further failure processing."
+  (fn [uid]
+    ;(println "fail walker" uid)
+    (let [obj (get-object uid tpn)
+          typ (:tpn-type obj)]
+
+      (cond (util/is-edge obj)
+            (do
+              (failed-objects [uid] fail-time)
+              [[uid] [(:end-node obj)]])
+
+
+            ; only when we have dispatched all choices, then all of them need to be failed for the choice
+            ; node to be failed.
+            (and dispatch-all-choices (= :c-end typ))
+            (let [incoming-acts (:incidence-set obj)
+                  failed (collect-failed (:incidence-set obj) @state)
+                  pending-finished (collect-pending-finished obj @state tpn)
+                  {pending :pending finished :finished} pending-finished
+                  node-failed? (= failed (:incidence-set obj))]
+              ;(pprint obj)
+              ;(println "incoming acts" incoming-acts)
+              ;(pprint (select-keys @state incoming-acts))
+              ;(println "pending or finished")
+              ;(pprint pending-finished)
+              ;(println "failed" failed)
+              (if node-failed?
+                [[uid] (into [] (:activities obj))]
+                [[] []]))
+
+            :else
+            ; all other nodes are failed
+            (do
+              (failed-objects [uid] fail-time)
+              [[uid] (into [] (:activities obj))])
+            ))))
+
+(defn- derive-failed-objects
   "When a activity is failed, corresponding end-node is failed.
    all not-dispatched activities and their end nodes are failed.
    "
@@ -681,10 +700,13 @@
   [tpn failed-act-id]
   {:pre [(map? tpn)]}
   (let [undispatched (into {} (filter (fn [[uid state]]
-                                        (= :not-dispatched state))
-                                      (get-activities-state tpn)))
-        failed (into #{failed-act-id} (keys undispatched))
+                                          (= :not-dispatched state))
+                                        (get-activities-state tpn)))
+          failed (into #{failed-act-id} (keys undispatched))
 
-        failed (into failed (map (fn [act-id]
-                                   (:end-node (get-object act-id tpn))) failed))]
-    failed))
+          failed (into failed (map (fn [act-id]
+                                     (:end-node (get-object act-id tpn))) failed))]
+      failed))
+
+(defn activity-failed [failed-act-id tpn]
+  (util/walker failed-act-id (make-fail-walker tpn (util/getTimeInSeconds))))
