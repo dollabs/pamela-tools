@@ -9,12 +9,12 @@
 (ns pamela.tools.rmq-logger.log-player
   (:gen-class)
   (:require [pamela.tools.utils.rabbitmq :as rmq]
-            [pamela.tools.utils.tpn-json :as tpn-json]
+
             [pamela.tools.utils.util :as util]
 
             [clojure.pprint :refer :all]
             [clojure.tools.cli :as cli]
-            [clojure.data.json]
+            [clojure.data.json :as json]
             [clojure.string :as str]
             )
   (:import (java.util Date Timer TimerTask)))
@@ -71,8 +71,14 @@
         time (read-string (subs line (inc time-begin) time-end))]
     time))
 
+(defn map-from-json-str [jsn]
+  (try
+    (json/read-str jsn :key-fn #(keyword %))
+    (catch Exception e
+      (println "Error parsing map-from-json-str:\n" jsn + "\n"))))
+
 (defn make-event [line]
-  [(get-time-for-line line) (tpn-json/map-from-json-str (util/get-everything-after 2 "," line))])
+  [(get-time-for-line line) (map-from-json-str (util/get-everything-after 2 "," line))])
 
 (defn add-event [amap line]
   (let [[time data] (make-event line)]
