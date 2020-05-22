@@ -9,8 +9,7 @@
 (ns pamela.tools.rmq-logger.core
   "Application to listen for all RMQ messages and log to stdout"
   (:gen-class)
-  (:require [pamela.tools.utils.tpn-json]
-            [pamela.tools.utils.util :as util]
+  (:require [pamela.tools.utils.util :as util]
             [pamela.tools.utils.rabbitmq :as rmq]
 
             [langohr.core :as lcore]
@@ -55,6 +54,12 @@
                    :default nil :parse-fn #(Integer/parseInt %)]
                   ["-?" "--help"]])
 
+(defn map-from-json-str [jsn]
+  (try
+    (cl-json/read-str jsn :key-fn #(keyword %))
+    (catch Exception e
+      (println "Error parsing map-from-json-str:\n" jsn + "\n"))))
+
 (defn handle-message
   "Non threaded writer."
   [payload exchange routing-key content-type time]
@@ -67,7 +72,7 @@
   (let [bin-type? (if (= content-type "application/x-binary")
                     true false)
         st (if-not bin-type? (String. payload "UTF-8"))
-        m (if-not bin-type? (pamela.tools.utils.tpn-json/map-from-json-str st)
+        m (if-not bin-type? (map-from-json-str st)
                             {:image "binary-data not displayed"})
         m (conj m {:received-routing-key routing-key :exchange exchange})]
     ;(clojure.pprint/pprint metadata)
