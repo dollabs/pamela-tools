@@ -44,7 +44,7 @@
 (def dispatch-duration-expected 0)
 (defonce events-count 0)                                    ;Events actually dispatched
 (def events-scheduled 0)
-(def repl false)
+(def repl true)
 
 (def cli-options [["-h" "--host rmqhost" "RMQ Host" :default "localhost"]
                   ["-p" "--port rmqport" "RMQ Port" :default 5672 :parse-fn #(Integer/parseInt %)]
@@ -52,6 +52,7 @@
                   ["-r" "--routing-key rkey" "Default routing-key is: #, when message itself does not has it" :default "#"]
                   ["-s" "--speedup speed" "Events will be dispatched `speedup` times faster" :default speedup :parse-fn #(Double/parseDouble %)]
                   ["-l" "--num-lines Nlines" "Number of lines to dispatch" :parse-fn #(Integer/parseInt %)]
+                  ["-c" "--simulate-clock Frequency" "Will publish clock messages to rkey clock at given frequency" :parse-fn #(Integer/parseInt %) :default 0]
                   ["-?" "--help" "Print this help" :default nil]])
 
 (defn make-java-date
@@ -80,13 +81,16 @@
 (defn make-event [line]
   [(get-time-for-line line) (map-from-json-str (util/get-everything-after 2 "," line))])
 
+(defn add-event-to-map [amap time data]
+  (update amap time (fn [old-val]
+                      (if (vector? old-val)
+                        (conj old-val data)
+                        [data]))))
+
 (defn add-event [amap line]
   (let [[time data] (make-event line)]
     (if (and time data)
-      (update amap time (fn [old-val]
-                          (if (vector? old-val)
-                            (conj old-val data)
-                            [data])))
+      (add-event-to-map amap time data)
       amap)))
 
 (defn get-routing-key [data]
@@ -135,7 +139,20 @@
           (println "not= events-scheduled events-dispatched" events-scheduled events-count)
           )))
 
-(defn schedule-events [file]
+(defn add-clock-events [events start-time end-time frequency]
+  ;(println "add-clock-events" (count events) start-time end-time frequency)
+  ;(pprint events)
+  (if (= 0 frequency)
+    events
+    (let [interval (long (* 1000 (float (/ 1 frequency))))
+          clks (range start-time (+ end-time interval) interval)]
+      (println "Adding clock events\nCount:" (count clks) "Frequency:" frequency "Interval:" interval)
+      (reduce (fn [res tim]
+                (add-event-to-map res tim {:app-id :log-player :routing-key "clock" :timestamp tim}))
+              events
+              clks))))
+
+(defn schedule-events [file clock-events]
   (println "\nFrom file:" file)
   (println "Speedup:" speedup)
   (reset! timer-latency [])
@@ -149,6 +166,7 @@
         kees (keys events)
         start-time (apply min kees)
         end-time (apply max kees)
+        events (add-clock-events events start-time end-time clock-events)
         ; Normalize absolute time to start time
         events (reduce (fn [res [abs-time data]]
                          (update res (long (/ (- abs-time start-time) speedup))
@@ -156,7 +174,6 @@
                                    (if (vector? old-value)
                                      (into old-value data)
                                      data))))
-
                        (sorted-map) events)
         abs-start (+ start-delay (System/currentTimeMillis))
         abs-end (+ abs-start (first (last events)))
@@ -170,9 +187,10 @@
     (println "Number of events:" (count lines))
     (println "Number of timers scheduled:" (count events))
     (def events-count 0)
-    (def events-scheduled (count lines))
+    (def events-scheduled 0)
     (doseq [[time data] events]
       ;(println time "->" data)
+      (def events-scheduled (+ events-scheduled (count data)))
       (let [real-time (+ abs-start time)]
         (.schedule dispatch-timer
                    (make-timer-task (fn []
@@ -197,23 +215,25 @@
   (let [conn (rmq/make-channel exchange {:host host :port port})]
     (if conn (swap! rmq conj conn))))
 
-(defn go [file host port exchange rkey]
+(defn go [file host port exchange rkey clock-events]
   (if-not (setup-rmq host port exchange rkey)
     (System/exit 1))
   (println "Starting events dispatch in " (float (/ start-delay 1000)) "secs")
-  (schedule-events file))
+  (schedule-events file clock-events))
 
 (defn -main [& args]
+  (def repl false)
   (println "Realtime RMQ log player")
   ;(println "args" (count args) args)
   (let [parsed (cli/parse-opts args cli-options)
-        {help     :help
-         host     :host
-         port     :port
-         exchange :exchange
-         rkey     :routing-key
-         speed    :speedup
-         nlines   :num-lines} (:options parsed)
+        {help         :help
+         host         :host
+         port         :port
+         exchange     :exchange
+         rkey         :routing-key
+         speed        :speedup
+         nlines       :num-lines
+         clock-events :simulate-clock} (:options parsed)
         [file] (:arguments parsed)]
     ;(println "\ncommand line options:")
     (pprint (:options parsed))
@@ -225,7 +245,7 @@
     (if (or help (not file))
       (do (println "Usage: pamela.tools.rmq-logger.log-player options raw-event-data-file\n where options are:")
           (println (:summary parsed)))
-      (go file host port exchange rkey))))
+      (go file host port exchange rkey clock-events))))
 
 (defn write-sorted-data
   "To sort data from a csv file and write it back"
