@@ -12,8 +12,7 @@
   (:require [pamela.tools.utils.tpn-json :as tpn-json]
             [pamela.tools.utils.util :refer :all]
             [pamela.tools.utils.rabbitmq :as rmq]
-
-            [ruiyun.tools.timer :as timer]
+            [pamela.tools.utils.timer :as timer]
             [clojure.pprint :refer :all]
             [clojure.tools.cli :as cli]
 
@@ -26,7 +25,6 @@
 (defonce activity-info {})
 (defonce command-state (atom {}))                           ;to keep track of runtime state of the plant-command
 
-(defonce timer (timer/deamon-timer "Activity Sim Timer Daemon"))
 ; Time for which simulator will pretend to execute activity
 (def activity-time 5)                                       ; unit is seconds
 
@@ -41,7 +39,6 @@
 (def fail-randomly false)
 (def fail-freq 3)                                           ; randomly fail once every 3 times
 
-
 (def cli-options [["-h" "--host rmqhost" "RMQ Host" :default "localhost"]
                   ["-p" "--port rmqport" "RMQ Port" :default 5672 :parse-fn #(Integer/parseInt %)]
                   ["-e" "--exchange name" "RMQ Exchange Name" :default "tpn-updates"]
@@ -51,10 +48,11 @@
                   ["-t" "--use-temporal-bounds" "When in classic mode, activity execution time will be upper-bound of temporal bounds(in seconds)" :default false]
                   ["-c" "--in-classic-mode" "When true, Sim will respond to activity start/negotiation messages (Old style message passing).
                   Otherwise operate in plant mode and respond to plant :start and :cancel messages"
-                   :default false ]
+                   :default false]
                   ["-a" "--activity-info a-info.json" "JSON File containing activity execution time. Will override default and -d value if specified\n Ex: {:act-123 {:execution-time 11} Note: :execution-time is in seconds"]
                   [nil "--fail" "Always fail activities" :default false]
                   [nil "--fail-randomly" "Randomly fail activities" :default false]
+                  [nil "--simulate-clock" "Will listen for clock messages on rkey `clock` and use the clock for timeouts only!" :default false]
                   ["-?" "--help"]
                   ])
 
@@ -110,11 +108,11 @@
       (when (instance? clojure.lang.IPersistentMap v)
         (let [before (getTimeInSeconds)]
           (println "Got activity start" k (:network-id m))
-          (timer/run-task! #(publish k :active (:network-id m) "tpn.activity.active") :delay 100 :by timer)
-          (timer/run-task! (fn []
-                             (println "finished " k "in time" (float (- (getTimeInSeconds) before)))
-                             (handle-activity-finished k (:network-id m)))
-                           :delay (get-activity-execution-time k (:network-id m)) :by timer))))))
+          (timer/schedule-task #(publish k :active (:network-id m) "tpn.activity.active") 100)
+          (timer/schedule-task (fn []
+                                 (println "finished " k "in time" (float (- (getTimeInSeconds) before)))
+                                 (handle-activity-finished k (:network-id m)))
+                               (get-activity-execution-time k (:network-id m))))))))
 
 (defn new-tpn [_ _ data]
   (let [strng (String. data "UTF-8")
@@ -160,12 +158,12 @@
     (swap! command-state update id conj :start)
     ; We cannot cancel a scheduled task because timer utility does not has an interface for it.
     ; so we will remove command-id in command-state as an indicator if the task is active or not.
-    (timer/run-task! (fn []
-                       (publish-command-state id plant-id :started (System/currentTimeMillis) nil)
-                       (swap! command-state update id conj :started))
-                     :delay 500 :by timer)
+    (timer/schedule-task (fn []
+                           (publish-command-state id plant-id :started (System/currentTimeMillis) nil)
+                           (swap! command-state update id conj :started))
+                         500)
     ; The plant does not know anything about the bounds. So activity sim time is activity-time
-    (timer/run-task! #(handle-plant-finished msg plant-id) :delay (* 1000 activity-time) :by timer)))
+    (timer/schedule-task #(handle-plant-finished msg plant-id) (* 1000 activity-time))))
 
 (defn cancel-command [msg plant-id]
   (finish-command msg plant-id :cancelled))
@@ -187,6 +185,11 @@
           (do
             #_(println "I cannot handle :state" (:state msg) "for id" (:id msg)))
           )))
+
+(defn update-clock [_ metadata data]
+  (let [msg (rmq-data-to-clj data)
+        ts (:timestamp msg)]
+    (if ts (timer/update-clock ts))))
 
 (defn usage [options-summary]
   (->> ["Plant Interface Simulation Engine"
@@ -224,9 +227,10 @@
         temporal-bounds (:use-temporal-bounds opts)
         fail (:fail opts)
         failr (:fail-randomly opts)
+        sim-clock (:simulate-clock opts)
         ]
 
-    ;(def repl false)
+    (def repl false)
     (when (:errors parsed)
       (print-help (:summary parsed))
       (println (string/join \newline (:errors parsed)))
@@ -277,6 +281,9 @@
       (println "Activity info")
       (pprint activity-info))
 
+    (if sim-clock
+      (rmq/make-subscription "clock" update-clock (:channel conn-info) (:exchange opts)))
+    (timer/set-use-sim-time sim-clock)
     ; Cleanup previous connection
     (stop-plant-processing)
 
