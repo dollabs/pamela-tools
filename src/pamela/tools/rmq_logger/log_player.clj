@@ -76,10 +76,18 @@
   (try
     (json/read-str jsn :key-fn #(keyword %))
     (catch Exception e
-      (println "Error parsing map-from-json-str:\n" jsn + "\n"))))
+      (util/to-std-err
+        (println "Error parsing map-from-json-str:\n" jsn + "\n")))))
 
 (defn make-event [line]
-  [(get-time-for-line line) (map-from-json-str (util/get-everything-after 2 "," line))])
+  ;(println "time:" (get-time-for-line line))
+  ;(println "map:")
+  ;(pprint (map-from-json-str (util/get-everything-after 2 "," line)) )
+  (let [time (get-time-for-line line)
+        data (map-from-json-str (util/get-everything-after 2 "," line))]
+    (if (and (map? data) (number? time))
+      [time data]
+      (util/to-std-err (println "Bad data\ntime:" time "\ndata" data)))))
 
 (defn add-event-to-map [amap time data]
   (update amap time (fn [old-val]
@@ -90,7 +98,13 @@
 (defn add-event [amap line]
   (let [[time data] (make-event line)]
     (if (and time data)
-      (add-event-to-map amap time data)
+      (try
+        ;(println time data)
+        (add-event-to-map amap time data)
+        (catch Exception e
+          (println "add-event error adding line\n" line)
+          (println (.getMessage e)) ))
+
       amap)))
 
 (defn get-routing-key [data]
@@ -164,6 +178,7 @@
         events (reduce (fn [res line]
                          (add-event res line)) (sorted-map) lines)
         kees (keys events)
+        ;_ (println kees)
         start-time (apply min kees)
         end-time (apply max kees)
         events (add-clock-events events start-time end-time clock-events)

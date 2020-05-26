@@ -58,7 +58,8 @@
   (try
     (cl-json/read-str jsn :key-fn #(keyword %))
     (catch Exception e
-      (println "Error parsing map-from-json-str:\n" jsn + "\n"))))
+      (util/to-std-err
+        (println "Error parsing map-from-json-str:\n" jsn + "\n")))))
 
 (defn handle-message
   "Non threaded writer."
