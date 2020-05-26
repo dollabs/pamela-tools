@@ -80,7 +80,8 @@
     (pt-util/to-std-err (println "update-clock value is in past:" cval "current clock" @clock))
     )
   (do (reset! clock cval)
-      (send call-backs process-timers cval)))
+      (if (get-use-sim-time)
+        (send call-backs process-timers cval))))
 
 (defn get-unix-time []
   (if use-sim-time
