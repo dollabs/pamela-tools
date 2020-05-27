@@ -20,20 +20,23 @@
             [pamela.tools.utils.util :as util]
             [pamela.tools.dispatcher.planviz :as planviz]
             [pamela.tools.utils.tpn-types :as tpn_type]
+            [pamela.tools.utils.timer :as pt-timer]
     ;:reload-all ; Causes problems in repl with clojure multi methods.
             [clojure.string :as string]
-            [ruiyun.tools.timer :as timer]
             [clojure.core.async :as async]
             [clojure.string :as str]
             [clojure.tools.cli :as cli]
             [clojure.java.io :as io]
             [clojure.pprint :refer :all]
             [clojure.set :as set]
-            [clojure.walk])
+            [clojure.walk]
+            )
   (:gen-class))
 
 ; forward declarations
 (declare act-cancel-handler)
+(declare act-failed-handler)
+(declare handle-tpn-failed)
 
 (def debug false)
 (def collect-bindings? true)
@@ -54,12 +57,16 @@
 (defonce stop-when-rt-exceptions true)
 (defonce activity-started-q (async/chan))
 (defonce observations-q (async/chan))
+(defonce tpn-failed-cb handle-tpn-failed)                                 ; when tpn is failed, this callback will be called
 
 ; Event handler agent. To simply serialize all events
 (defonce event-handler (agent {}))
 
 (def default-exchange "tpn-updates")
 (def routing-key-finished-message "tpn.activity.finished")
+
+(defn set-tpn-failed-handler [fn]
+  (def tpn-failed-cb fn))
 
 (defn reset-rt-exception-state []
   (reset! rt-exceptions []))
@@ -119,6 +126,7 @@
                   ["-w" "--wait-for-dispatch" "Will wait for tpn dispatch command" :default false]
                   [nil "--force-plant-id" "Will override plant-id specified in TPN with plant" :default nil] ; For regression testing
                   [nil "--dispatch-all-choices" "Will dispatch all choices" :default false]
+                  [nil "--simulate-clock" "Will listen for clock messages on rkey `clock` and use the clock for timeouts only!" :default false]
                   ["-?" "--help"]])
 
 #_(defn parse-summary [args]
@@ -156,7 +164,7 @@
   ([ids netid]
    (println "Reset network (internal)")
    (dispatch/reset-state)
-    ;; reset state in viewer
+   ;; reset state in viewer
    (reset-network-publish netid ids)))
 
 (defn toMsecs [time unit]
@@ -399,7 +407,7 @@
   (show-tpn-execution-time)
   (let [old-state (get-tpn-dispatch-state)
         old-info (last old-state)
-        new-info (conj old-info {:end-time (util/getTimeInSeconds)})
+        new-info (conj old-info {:end-time (pt-timer/getTimeInSeconds)})
         old-state (into [] (butlast old-state))
         new-state (conj old-state new-info)]
     (when (:dispatch-id old-info)
@@ -409,6 +417,30 @@
   ;(println "Sleep before exit")
   ;(Thread/sleep 1000)
   (exit))
+
+(defn get-temporal-bounds [act-id tpn]
+  (let [x (get-in tpn [act-id :constraints])
+        cnst-id (if x (first x))]
+    (if cnst-id (:value (cnst-id tpn)))))
+
+(defn handle-tpn-failed [tpn]
+  (println "TPN Failed" (:network-id tpn)))
+
+(defn handle-activity-timeout
+  "To be called when an activity has temporal bounds"
+  [act-id]
+  (println act-id "timed out")
+  (act-failed-handler act-id))
+
+(defn schedule-activity-timeouts [activities tpn]
+  (println "schedule-activity-timeouts")
+  (pprint activities)
+  (doseq [act-id (keys activities)]
+    (let [bounds (get-temporal-bounds act-id tpn)]
+      (println act-id ":" bounds)
+      (when bounds (pt-timer/schedule-task (fn []
+                                             (handle-activity-timeout act-id))
+                                           (* 1000 (second bounds)))))))
 
 (defn publish-dispatched [dispatched tpn-net]
   ;(println "publish-dispatched dispatched" (:network-id tpn-net) (get-in @state [:tpn-map :network-id]) (.getName (Thread/currentThread)))
@@ -442,21 +474,20 @@
     (when (pos? (count tpn-activities))
       (rmq/publish-object (merge tpn-activities {:network-id netid}) "tpn.activity.negotiation" channel exch-name)
       (publish-to-plant tpn-activities))
-
+    (schedule-activity-timeouts tpn-activities tpn-net)
     ; if dispatched has any delay activities, then create a timer to finish them.
     (doseq [a-vec delays]
       (let [id (first a-vec)
-            cnst-id (first (get-in tpn-net [id :constraints]))
-            cnst (cnst-id tpn-net)
-            lb (first (:value cnst))
+            cnst (get-temporal-bounds id tpn-net)
+            lb (first cnst)
             msec (toMsecs lb timeunit)
             obj {:network-id netid (first a-vec) {:uid (first a-vec) :tpn-object-state :finished}}
-            before (System/currentTimeMillis)]
+            before (pt-timer/get-unix-time)]
         (println "Starting delay activity" id "delay in millis:" msec)
-        (timer/run-task! (fn []
-                           (println "delay finished" id "delayed by " (- (System/currentTimeMillis) before))
-                           (rmq/publish-object obj routing-key-finished-message channel exch-name))
-                         :delay msec)))
+        (pt-timer/schedule-task (fn []
+                                  (println "delay finished" id "delayed by " (- (pt-timer/get-unix-time) before))
+                                  (rmq/publish-object obj routing-key-finished-message channel exch-name))
+                                msec)))
 
     ;(println "Checking feasibility")
     #_(send event-handler check-and-report-infeasibility)
@@ -486,7 +517,7 @@
                                        dispatched)) tpn-net))
 
 (defn act-finished-handler [act-id act-state tpn-map m]
-  (let [before (util/getTimeInSeconds)]
+  (let [before (pt-timer/getTimeInSeconds)]
     ;(println "begin -- act-finished-handler" act-id act-state (.getName (Thread/currentThread)))
     ;(println "tpn-map")
     ;(pprint tpn-map)
@@ -510,10 +541,22 @@
       (publish-dispatched x tpn-map))))
 
 (defn act-cancel-handler [acts]
-  (let [time (util/getTimeInSeconds)]
+  (let [time (pt-timer/getTimeInSeconds)]
     (dispatch/cancel-activities acts time)
     (planviz/cancel (:planviz @state) acts (get-network-id))
     (cancel-plant-activities acts (* time 1000))))
+
+(defn act-failed-handler [act-id]
+  (let [failed-ids (dispatch/activity-failed act-id (get-tpn))
+        act-label (:display-name (util/get-object act-id (:tpn-map @state)))]
+    (println "Not dispatching rest of activities as activity failed" act-id ":" act-label)
+    #_(println "failed ids" (count failed-ids) failed-ids)
+    (planviz/failed (get-planviz) failed-ids (get-network-id))
+    #_(dispatch/failed-objects failed-ids (util/getTimeInSeconds)))
+  (when (dispatch/network-finished? (get-tpn))
+    (println "Network failed due to failed activity" act-id)
+    (handle-tpn-failed (get-tpn))
+    (handle-tpn-finished (get-network-id))))
 
 (defn get-non-plant-msg-type
   "Non plant message is:
@@ -556,13 +599,7 @@
   (doseq [[_ v] msg]
     (when (:tpn-object-state v)
       #_(println "handle-activity-message :failed" (:uid v))
-      #_(println (select-keys @state [:choice-fn]))
-      (println "Not dispatching rest of activities as activity failed" (:uid v) (:display-name (util/get-object (:uid v) (:tpn-map @state))))
-
-      (let [failed-ids (dispatch/activity-failed (:uid v) (get-tpn))]
-        #_(println "failed ids" (count failed-ids) failed-ids)
-        (planviz/failed (get-planviz) failed-ids (get-network-id))
-        #_(dispatch/failed-objects failed-ids (util/getTimeInSeconds))))))
+      (act-failed-handler (:uid v)))))
 
 (defmethod handle-activity-message :cancelled [msg]
   ;(pprint msg)
@@ -602,14 +639,14 @@
          (pprint (:last-rmq-msg @state))
          )))
    (update-state! {:last-rmq-msg msg})
-    ;(println " process-activity-msg Got message")
-    ;(pprint msg)
+   ;(println " process-activity-msg Got message")
+   ;(pprint msg)
    (handle-activity-message msg)
    (update-state! {:last-rmq-msg nil}))
 
   #_([old-state msg]                                        ;"When working on event-handler thread"
-      ;(println "event-handler process-activity-msg")
-      (process-activity-msg msg)))
+     ;(println "event-handler process-activity-msg")
+     (process-activity-msg msg)))
 
 (defn process-activity-started
   "Called when in monitor mode"
@@ -623,8 +660,7 @@
       (println "Found network " network-id)
       (let [network-obj (util/get-object network-id m)
             begin-node (util/get-object (:begin-node network-obj) m)
-            acts-started (disj (into #{} (keys act-msg)) :network-id)
-            ]
+            acts-started (disj (into #{} (keys act-msg)) :network-id)]
 
         (if (dispatch/network-finished? m)
           (reset-network m))
@@ -691,7 +727,7 @@
     (pprint cmd)
     (when (and (= :start (:state cmd))
                (= "dispatch-tpn" (:function-name cmd)))
-      (let [time (util/getTimeInSeconds)
+      (let [time (pt-timer/getTimeInSeconds)
             old-state (get-tpn-dispatch-state)
             old-info (last old-state)
             new-state (conj old-state {:start-time  time
@@ -751,8 +787,7 @@
   (init-new-tpn tpn)
   (update-state! {:tpn-bindings bindings :tpn-dispatch-time abs-dispatch-time})
   (dispatch/set-node-bindings bindings)
-  (dispatch-tpn tpn)
-  )
+  (dispatch-tpn tpn))
 
 (defn usage [options-summary]
   (->> ["TPN Dispatch Application"
@@ -944,6 +979,11 @@
         (println "Error creating rmq channel")
         (exit)))))
 
+(defn update-clock [_ metadata data]
+  (let [msg (util/map-from-json-str (String. data "UTF-8"))
+        ts (:timestamp msg)]
+    (if ts (pt-timer/update-clock ts))))
+
 (defn go [& [args]]
   (let [parsed (cli/parse-opts args cli-options)
         help (get-in parsed [:options :help])
@@ -959,7 +999,7 @@
         wait-for-dispatch (get-in parsed [:options :wait-for-dispatch])
         force-plant-id-local (get-in parsed [:options :force-plant-id])
         dispatch-all-choices (get-in parsed [:options :dispatch-all-choices])
-        ]
+        sim-clock (get-in parsed [:options :simulate-clock])]
     ;(pprint parsed)
     (when help
       (println (usage (:summary parsed)))
@@ -997,6 +1037,12 @@
     #_(print-state)
 
     (setup-rmq exch-name host port)
+    (pt-timer/set-use-sim-time sim-clock)
+    (when sim-clock
+      (rmq/make-subscription "clock" update-clock (get-channel exch-name) exch-name)
+      ; to let published clock sync
+      (Thread/sleep 2000))
+
     (if tpn-file
       (do
         (update-state! {:tpn-file tpn-file})
