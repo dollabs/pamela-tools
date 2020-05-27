@@ -9,7 +9,7 @@
 (ns pamela.tools.dispatcher.dispatch
   "Keeps track of dispatched state of TPN"
   (:require
-    [pamela.tools.utils.util :refer :all]
+    [pamela.tools.utils.timer :as pt-timer]
     [pamela.tools.utils.tpn-types :as tpn_types]
     [pamela.tools.utils.util :as util]
 
@@ -31,11 +31,11 @@
   "uses update-in to update state atom"
   [keys value]
   (if-not value
-    (to-std-err (println "Warn: update-state value is nil for keys:" keys)))
+    (util/to-std-err (println "Warn: update-state value is nil for keys:" keys)))
 
   (let [pre-cond (every? #(not (nil? %)) keys)]
     (if-not pre-cond
-      (to-std-err (println "Error: update-state at least one of the keys is nil: Won't update, Given keys" keys))
+      (util/to-std-err (println "Error: update-state at least one of the keys is nil: Won't update, Given keys" keys))
       (swap! state update-in keys (fn [_] value)))))
 
 (defprotocol dispatchI
@@ -72,12 +72,12 @@
 (def dispatch-state (->dispatchR))
 
 (defn cancel-activities [uids time]
-  (let [t (getTimeInSeconds {:time time})]
+  (let [t (pt-timer/getTimeInSeconds {:time time})]
     (doseq [uid uids]
       (cancel dispatch-state uid t))))
 
 (defn- failed-objects [uids time]
-  (let [t (getTimeInSeconds {:time time})]
+  (let [t (pt-timer/getTimeInSeconds {:time time})]
     (doseq [uid uids]
       (failed dispatch-state uid t))))
 
@@ -168,11 +168,11 @@
     (first (filter rutil/is-select-var? node-vars)))
 
 (defn- find-activity [src-uid target-uid tpn-map]
-  (let [acts (:activities (get-object src-uid tpn-map))
+  (let [acts (:activities (util/get-object src-uid tpn-map))
         act-objs (map (fn [act-id]
-                        (get-object act-id tpn-map)) acts)
+                        (util/get-object act-id tpn-map)) acts)
         found (filter (fn [act]
-                        (= target-uid (:uid (get-end-node-activity act tpn-map))))
+                        (= target-uid (:uid (util/get-end-node-activity act tpn-map))))
                       act-objs)]
     (first found)))
 
@@ -181,9 +181,9 @@
   Return act-id"
   [src-nid target-nid tpn-map]
   ;(println "get-choice-binding" src-nid target-nid)
-  (let [src-acts (:activities (get-object src-nid tpn-map))
+  (let [src-acts (:activities (util/get-object src-nid tpn-map))
         act-ids (filter (fn [act-id]
-                          (= target-nid (:end-node (get-object act-id tpn-map)))
+                          (= target-nid (:end-node (util/get-object act-id tpn-map)))
                           ) src-acts)
         ]
     ;(println "outgoing acts" act-ids)
@@ -194,13 +194,13 @@
 
 (defn- reset-state-network [ids]
   "Walk the TPN for the given network and remove all objects from state"
-  (remove-keys ids state))                                  ;(walk/collect-tpn-ids netid objects)
+  (util/remove-keys ids state))                                  ;(walk/collect-tpn-ids netid objects)
 
 (defn- update-dispatch-state! [uid key value]
   "Updates the runtime state of the object identified by uid"
   #_(println "update-state" uid key value)
   (if-not uid
-    (debug-object (str "Cannot update run time state for nil uid " key " " value) nil update-dispatch-state!)
+    (util/debug-object (str "Cannot update run time state for nil uid " key " " value) nil update-dispatch-state!)
     (do (when (get-in @state [uid key])
           (println "Warning tpn.dispatch/state has [uid key] new-val" uid (get-in @state [uid key]) value))
         (swap! state assoc-in [uid key] value))))
@@ -211,7 +211,7 @@
 (defn- first-choice [activities _]
   "Return the first activity"
   (if (empty? activities)
-    (debug-object "Activity list is empty" activities first-choice)
+    (util/debug-object "Activity list is empty" activities first-choice)
     (first activities)))
 
 (defn- node-reached-helper [node state objs]                ;TODO Candidate for refactor
@@ -280,7 +280,7 @@
           :dispatched
 
           :otherwise
-          (do (debug-object "Error in Activity state" act check-activity-state)
+          (do (util/debug-object "Error in Activity state" act check-activity-state)
               :error))))
 
 ; TODO Add to some protocol
@@ -306,7 +306,7 @@
 ; TODO Add to some protocol
 (defn activity-finished [act objs m]
   "To be called when the activity has finished its processing"
-  (let [time (getTimeInSeconds m)
+  (let [time (pt-timer/getTimeInSeconds m)
         m (conj m {:time time})]
     (update-dispatch-state! (:uid act) :end-time time)
     #_(println "act finished" (:uid act))
@@ -322,7 +322,7 @@
   [act objs m]
   (let [act-state (check-activity-state act @state)]
     (if-not (#{:not-dispatched :finished} act-state)
-      (let [time (getTimeInSeconds m)
+      (let [time (pt-timer/getTimeInSeconds m)
             m (conj m {:time time})
             end-node-id (:end-node act)
             end-node (end-node-id objs)
@@ -343,10 +343,10 @@
   Returns the list of activities dispatched."
   #_(println "dispatch-object-state" (:uid node) (:tpn-type node))
   (conj {(:uid node) {:uid (:uid node) :tpn-object-state :reached}}
-        (let [time (getTimeInSeconds m)
+        (let [time (pt-timer/getTimeInSeconds m)
               m (conj m (:time time))]
           (if (node-dispatched? node @state objs)
-            (debug-object "Already dispatched node. Not dispatching" node dispatch-object)
+            (util/debug-object "Already dispatched node. Not dispatching" node dispatch-object)
             (do
               (update-dispatch-state! (:uid node) :start-time time)
               #_((:dispatch-listener m) node :reached)
@@ -364,7 +364,7 @@
             (:tpn-type obj)))
 
 (defmethod dispatch-object :default [obj _ _]
-  (debug-object "dispatch-object :default" obj dispatch-object)
+  (util/debug-object "dispatch-object :default" obj dispatch-object)
   #_(clojure.pprint/pprint obj)
   {(:uid obj) {:uid (:uid obj) :tpn-object-state :unkown}})
 
@@ -384,15 +384,15 @@
     (let [;choice-fn (:choice-fn m)
           ;choice-act-id (choice-fn (:activities obj) m)
           ;choice-act (choice-act-id objs)
-          time (getTimeInSeconds m)
+          time (pt-timer/getTimeInSeconds m)
           m (conj m {:time time})
-          first-choice-act (get-object (first-choice (:activities obj) nil) objs)
+          first-choice-act (util/get-object (first-choice (:activities obj) nil) objs)
           bindings (:tpn-bindings @state)
           ;_ (pprint @state)
           #_(do (println "Bindings")
                 (pprint bindings))
           choice-act (if bindings
-                       (get-object (get-choice-binding
+                       (util/get-object (get-choice-binding
                                      (:uid obj)
                                      (get-in bindings [(:uid obj) :to-node])
                                      objs)
@@ -415,7 +415,7 @@
 
 (defmethod dispatch-object :activity [obj objs m]
   (let [act-state (check-activity-state obj @state)
-        time (getTimeInSeconds m)
+        time (pt-timer/getTimeInSeconds m)
         m (conj m {:time time})]
     (cond (= :not-dispatched act-state)
           (do
@@ -428,14 +428,14 @@
                   (activity-finished obj objs m)))
           :else
           (do
-            (to-std-err
+            (util/to-std-err
               (println "dispatch-object :activity unknown activity state" act-state))
             {}))))
 
 (defmethod dispatch-object :null-activity [obj objs m]
   {:post [(map? %)]}
   #_(println "null-activity" (:uid obj) (:tpn-type obj) "-----------")
-  (let [time (getTimeInSeconds m)
+  (let [time (pt-timer/getTimeInSeconds m)
         m (conj m {:time time})
         act-state (check-activity-state obj @state)]
     #_(println "dispatch-object null-activity" (:uid obj) (check-activity-state obj @state))
@@ -448,7 +448,7 @@
           )))
 
 (defmethod dispatch-object :delay-activity [obj _ m]
-  (let [time (getTimeInSeconds m)
+  (let [time (pt-timer/getTimeInSeconds m)
         m (conj m {:time time})]
     (update-dispatch-state! (:uid obj) :start-time time))
   #_(println "dispatch-object :delay-activity" obj)
@@ -463,7 +463,7 @@
         me (merge m {;:activity-dispatcher a-dispatcher
                      :choice-fn choice-fn})
         begin-obj ((:begin-node obj) objs)
-        time (getTimeInSeconds me)
+        time (pt-timer/getTimeInSeconds me)
         me (conj me {:time time})]
     (println "dispatching begin node")
 
@@ -622,10 +622,10 @@
 (defn network-finished? [tpn-net]
   ;(println "-- network-finished? " (:network-id tpn-net))
   ;(pprint tpn-net)
-  (let [network (get-object (:network-id tpn-net) tpn-net)
-        begin (get-object (:begin-node network) tpn-net)
-        ;end (get-object (:end-node begin) tpn-net)
-        end (get-network-end-node tpn-net begin)]
+  (let [network (util/get-object (:network-id tpn-net) tpn-net)
+        begin (util/get-object (:begin-node network) tpn-net)
+        ;end (util/get-object (:end-node begin) tpn-net)
+        end (util/get-network-end-node tpn-net begin)]
 
     ;(clojure.pprint/pprint network)
     ;(clojure.pprint/pprint begin)
@@ -637,7 +637,7 @@
 
 (defn collect-pending-finished [node state tpn]
   (reduce (fn [res incoming-act]
-            (let [act-state (check-activity-state (get-object incoming-act tpn) state)]
+            (let [act-state (check-activity-state (util/get-object incoming-act tpn) state)]
               ;(println incoming-act act-state)
               (if (or (= :finished act-state)
                           (= :cancelled act-state))
@@ -661,7 +661,7 @@
     to stop further failure processing."
   (fn [uid]
     ;(println "fail walker" uid)
-    (let [obj (get-object uid tpn)
+    (let [obj (util/get-object uid tpn)
           typ (:tpn-type obj)]
 
       (cond (util/is-edge obj)
@@ -709,8 +709,8 @@
           failed (into #{failed-act-id} (keys undispatched))
 
           failed (into failed (map (fn [act-id]
-                                     (:end-node (get-object act-id tpn))) failed))]
+                                     (:end-node (util/get-object act-id tpn))) failed))]
       failed))
 
 (defn activity-failed [failed-act-id tpn]
-  (util/walker failed-act-id (make-fail-walker tpn (util/getTimeInSeconds))))
+  (util/walker failed-act-id (make-fail-walker tpn (pt-timer/getTimeInSeconds))))
