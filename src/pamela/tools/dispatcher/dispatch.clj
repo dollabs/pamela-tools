@@ -56,7 +56,11 @@
   (cancelled [this act-id time]
     (update-state [act-id :cancelled-time] time))
   (failed [this obj-id time]
-    (update-state [obj-id :start-time] time)
+    (if (nil? (get-in @state [obj-id :start-time]))
+      ; we should not over write start-time for activities that have started
+      ; nodes and activities that have not started will not have :start-time so
+      ; we use given value for start-time, end-time and fail-time
+      (update-state [obj-id :start-time] time))
     (update-state [obj-id :end-time] time)
     (update-state [obj-id :fail-time] time))
   (update-plant-dispatch-id-internal [this act-id disp-id]
