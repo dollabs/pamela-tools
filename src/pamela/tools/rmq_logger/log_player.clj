@@ -72,19 +72,12 @@
         time (read-string (subs line (inc time-begin) time-end))]
     time))
 
-(defn map-from-json-str [jsn]
-  (try
-    (json/read-str jsn :key-fn #(keyword %))
-    (catch Exception e
-      (util/to-std-err
-        (println "Error parsing map-from-json-str:\n" jsn + "\n")))))
-
 (defn make-event [line]
   ;(println "time:" (get-time-for-line line))
   ;(println "map:")
   ;(pprint (map-from-json-str (util/get-everything-after 2 "," line)) )
   (let [time (get-time-for-line line)
-        data (map-from-json-str (util/get-everything-after 2 "," line))]
+        data (util/map-from-json-str (util/get-everything-after 2 "," line))]
     (if (and (map? data) (number? time))
       [time data]
       (util/to-std-err (println "Bad data\ntime:" time "\ndata" data)))))
