@@ -110,6 +110,15 @@
       (insert (+ (get-unix-time) delay) fn)
       (insert (+ wrt-time delay) fn))))
 
+(defn getTimeInSeconds
+  ([]
+   (/ (get-unix-time) 1000))
+  ([m]
+   (if (and (contains? m :time)
+            (not (nil? (:time m))))
+     (:time m)
+     (getTimeInSeconds))))
+
 (defn- schedule-test []
   (doseq [t (range 1 10)]
     ;(println "t" t)

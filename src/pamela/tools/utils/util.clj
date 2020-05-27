@@ -258,15 +258,6 @@
   (with-open [r (reader fname)]
     (doall (line-seq r))))
 
-(defn getTimeInSeconds
-  ([]
-   (/ (System/currentTimeMillis) 1000))
-  ([m]
-   (if (and (contains? m :time)
-            (not (nil? (:time m))))
-     (:time m)
-     (getTimeInSeconds))))
-
 (defn map-invert
   "Convert map of keys and values to {val #{keys}" [m]
   (reduce (fn [result [k v]]
