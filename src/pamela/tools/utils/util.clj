@@ -13,14 +13,14 @@
            (clojure.lang PersistentQueue)
            (java.util.regex Pattern))
   (:require [pamela.tools.utils.tpn-types :as tpn_types]
-            [pamela.tools.utils.tpn-json :as tpn-json]
 
             [clojure.pprint :refer :all]
             [clojure.string :as str]
             [clojure.data :refer :all]
             [clojure.set :as set]
             [clojure.java.io :refer :all]
-            [clojure.walk :as w]))
+            [clojure.walk :as w]
+            [clojure.data.json :as json]))
 
 (def debug nil)
 
@@ -232,6 +232,13 @@
                              (:end-node current-object))
                          m)))))
 
+(defn map-from-json-str [jsn]
+  (try
+    (json/read-str jsn :key-fn #(keyword %))
+    (catch Exception e
+      (to-std-err
+        (println "Error parsing map-from-json-str:\n" jsn + "\n")))))
+
 ;;; Function to read rmq-logger generated CSV line containing timestamp and json message
 ;;; Return time-stamp as ? and json message as clj-map
 (defn parse-rmq-logger-json-line [line]
@@ -244,7 +251,7 @@
         ]
 
     {:recv-ts (read-string ts)
-     :data    (tpn-json/map-from-json-str data)}))
+     :data    (map-from-json-str data)}))
 
 (defn read-lines [fname]
   "Read lines from a file"
