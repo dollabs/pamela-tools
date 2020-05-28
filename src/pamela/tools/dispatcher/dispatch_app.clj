@@ -434,10 +434,10 @@
 
 (defn schedule-activity-timeouts [activities tpn]
   (println "schedule-activity-timeouts")
-  (pprint activities)
+  ;(pprint activities)
   (doseq [act-id (keys activities)]
     (let [bounds (get-temporal-bounds act-id tpn)]
-      (println act-id ":" bounds)
+      (println "Activity bounds" act-id ":" bounds)
       (when bounds (pt-timer/schedule-task (fn []
                                              (handle-activity-timeout act-id))
                                            (* 1000 (second bounds)))))))
@@ -550,14 +550,15 @@
 (defn act-failed-handler [act-id]
   (let [failed-ids (dispatch/activity-failed act-id (get-tpn))
         act-label (:display-name (util/get-object act-id (:tpn-map @state)))]
-    (println "Not dispatching rest of activities as activity failed" act-id ":" act-label)
-    #_(println "failed ids" (count failed-ids) failed-ids)
-    (planviz/failed (get-planviz) failed-ids (get-network-id))
-    #_(dispatch/failed-objects failed-ids (util/getTimeInSeconds)))
-  (when (dispatch/network-finished? (get-tpn))
-    (println "Network failed due to failed activity" act-id)
-    (handle-tpn-failed (get-tpn))
-    (handle-tpn-finished (get-network-id))))
+    (when failed-ids
+      (println "Not dispatching rest of activities as activity failed" act-id ":" act-label)
+      #_(println "failed ids" (count failed-ids) failed-ids)
+      (planviz/failed (get-planviz) failed-ids (get-network-id))
+      #_(dispatch/failed-objects failed-ids (util/getTimeInSeconds))
+      (when (dispatch/network-finished? (get-tpn))
+        (println "Network failed due to failed activity" act-id)
+        (if tpn-failed-cb (tpn-failed-cb (get-tpn)))
+        (handle-tpn-finished (get-network-id))))))
 
 (defn get-non-plant-msg-type
   "Non plant message is:

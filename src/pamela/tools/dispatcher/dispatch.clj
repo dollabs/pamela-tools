@@ -716,4 +716,4 @@
   (let [act-state (check-activity-state (util/get-object failed-act-id tpn) @state)]
     (if (= act-state :dispatched)
       (util/walker failed-act-id (make-fail-walker tpn (pt-timer/getTimeInSeconds)))
-      (do (println "Failed activity" failed-act-id "activity state is " act-state)))))
+      (do (println "Failed activity" failed-act-id "state is " act-state)))))
