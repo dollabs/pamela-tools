@@ -12,7 +12,7 @@
   (:require [pamela.tools.utils.tpn-json :as tpn-json]
             [pamela.tools.utils.util :refer :all]
             [pamela.tools.utils.rabbitmq :as rmq]
-            [pamela.tools.utils.timer :as timer]
+            [pamela.tools.utils.timer :as pt-timer]
             [clojure.pprint :refer :all]
             [clojure.tools.cli :as cli]
 
@@ -106,11 +106,11 @@
         m (tpn-json/map-from-json-str st)]
     (doseq [[k v] m]
       (when (instance? clojure.lang.IPersistentMap v)
-        (let [before (getTimeInSeconds)]
+        (let [before (pt-timer/getTimeInSeconds)]
           (println "Got activity start" k (:network-id m))
-          (timer/schedule-task #(publish k :active (:network-id m) "tpn.activity.active") 100)
-          (timer/schedule-task (fn []
-                                 (println "finished " k "in time" (float (- (getTimeInSeconds) before)))
+          (pt-timer/schedule-task #(publish k :active (:network-id m) "tpn.activity.active") 100)
+          (pt-timer/schedule-task (fn []
+                                 (println "finished " k "in time" (float (- (pt-timer/getTimeInSeconds) before)))
                                  (handle-activity-finished k (:network-id m)))
                                (get-activity-execution-time k (:network-id m))))))))
 
@@ -158,12 +158,12 @@
     (swap! command-state update id conj :start)
     ; We cannot cancel a scheduled task because timer utility does not has an interface for it.
     ; so we will remove command-id in command-state as an indicator if the task is active or not.
-    (timer/schedule-task (fn []
+    (pt-timer/schedule-task (fn []
                            (publish-command-state id plant-id :started (System/currentTimeMillis) nil)
                            (swap! command-state update id conj :started))
                          500)
     ; The plant does not know anything about the bounds. So activity sim time is activity-time
-    (timer/schedule-task #(handle-plant-finished msg plant-id) (* 1000 activity-time))))
+    (pt-timer/schedule-task #(handle-plant-finished msg plant-id) (* 1000 activity-time))))
 
 (defn cancel-command [msg plant-id]
   (finish-command msg plant-id :cancelled))
@@ -189,7 +189,7 @@
 (defn update-clock [_ metadata data]
   (let [msg (rmq-data-to-clj data)
         ts (:timestamp msg)]
-    (if ts (timer/update-clock ts))))
+    (if ts (pt-timer/update-clock ts))))
 
 (defn usage [options-summary]
   (->> ["Plant Interface Simulation Engine"
@@ -281,9 +281,10 @@
       (println "Activity info")
       (pprint activity-info))
 
+    (pt-timer/set-use-sim-time sim-clock)
     (if sim-clock
       (rmq/make-subscription "clock" update-clock (:channel conn-info) (:exchange opts)))
-    (timer/set-use-sim-time sim-clock)
+
     ; Cleanup previous connection
     (stop-plant-processing)
 
