@@ -62,8 +62,7 @@
          "Collects clj files "
          []
          (println "task: build")
-         (comp (pom) (jar) (install) (target :dir #{"target"}))
-         )
+         (comp (pom) (jar) (install) (target :dir #{"target"})))
 
 (deftask uber-dispatcher
          "Create uber jar for dispatcher"
@@ -99,6 +98,15 @@
          (println "Creating uber jar for rmq-log-player")
          (comp (aot :namespace #{'pamela.tools.rmq-logger.log-player}) (uber) (jar :file (str "rmq-log-player-" version ".jar")
                                                                                    :main 'pamela.tools.rmq-logger.log-player) (target :no-clean true)))
+
+(deftask uber-clock
+         "Create uber jar for sim clock"
+         []
+         (println "Creating uber jar for simulated clock")
+         (comp (aot :namespace #{'pamela.tools.utils.clock-app}) (uber) (jar :file (str "sim-clock-" version ".jar")
+                                                                                   :main 'pamela.tools.utils.clock-app) (target :no-clean true)))
+
+; boot uber-dispatcher uber-dispatcher-manager uber-plant-sim uber-rmq-logger uber-log-player uber-clock
 
 #_(deftask uber-exp-charts
          "Create uber jar for plotting monte carlo experiment stats"

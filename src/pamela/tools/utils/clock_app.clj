@@ -68,6 +68,7 @@
   )
 
 (defn schedule-timer [period]
+  (println "Scheduling clock publish every " period "millis")
   (timer/run-task! (fn []
                      (publish-clock)) :by clock-timer :period period))
 
@@ -93,8 +94,7 @@
     (if-not conn-info (exit 0))
 
     (when (> sim-clock 0)
-      )
-    #_(timer/set-use-sim-time sim-clock)
+      (schedule-timer (long (* 1000 (float (/ 1 sim-clock))))))
     ; Cleanup previous connection
     (reset-rmq)
 
