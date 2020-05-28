@@ -474,6 +474,7 @@
     (when (pos? (count tpn-activities))
       (rmq/publish-object (merge tpn-activities {:network-id netid}) "tpn.activity.negotiation" channel exch-name)
       (publish-to-plant tpn-activities))
+
     (schedule-activity-timeouts tpn-activities tpn-net)
     ; if dispatched has any delay activities, then create a timer to finish them.
     (doseq [a-vec delays]

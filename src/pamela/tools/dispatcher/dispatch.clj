@@ -264,7 +264,7 @@
     #_(println "act start end " id start-time end-time)
     (cond (= nil (id state))
           (do
-            ;(println "unknown activity" id)
+            ;(util/to-std-err (println "unknown activity" id))
             :not-dispatched)
 
           (not (nil? end-time))
@@ -713,4 +713,7 @@
       failed))
 
 (defn activity-failed [failed-act-id tpn]
-  (util/walker failed-act-id (make-fail-walker tpn (pt-timer/getTimeInSeconds))))
+  (let [act-state (check-activity-state (util/get-object failed-act-id tpn) @state)]
+    (if (= act-state :dispatched)
+      (util/walker failed-act-id (make-fail-walker tpn (pt-timer/getTimeInSeconds)))
+      (do (println "Failed activity" failed-act-id "activity state is " act-state)))))
