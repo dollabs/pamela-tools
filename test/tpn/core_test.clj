@@ -21,7 +21,8 @@
             [clojure.test :refer :all]
             [clojure.data.json :as json]
             [clojure.pprint :refer :all]
-            [clojure.data]))
+            [clojure.data]
+            [pamela.tools.mct-planner.planner :as planner]))
 
 #_(defn show-simple-parallel []
     (tpn.util/send-to "localhost" 34170 (slurp "test/data/accord/simple-parallel.json")))
@@ -275,6 +276,25 @@
     (plant/observations plant "planviz" nil [{:field :tpn-object-state
                                               :value a1
                                               }] nil)))
+
+(defn fail-tpn-cb [tpn node-state]
+  (println "TPN failed. replanning")
+  ;(pprint tpn)
+  (println "node state")
+  (pprint node-state)
+  (def node-state node-state)
+  ;(def new-expr-bindings (planner/temporal-bindings-from-tpn-state (:nid-2-var exprs) node-state))
+  ; solve again and see what comes
+  #_(let [again (planner/solve tpn new-expr-bindings 5)]
+    (if (nil? (:bindings again))
+      (println "Planner failed to find solution for given node state and 5 iterations"))))
+
+(defn test-failed-tpn [file & [bindings]]
+  (dapp/set-tpn-failed-handler fail-tpn-cb)
+  (dispatch-tpn [file])
+
+  (def tpn (dapp/get-tpn))
+  (def exprs (planner/solve tpn bindings)))
 
 ; Manual testing
 ; - With plant sim, all TPNs should dispatch and finish as expected. Some temporal constraints will fail because of
