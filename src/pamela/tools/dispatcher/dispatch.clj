@@ -136,34 +136,6 @@
 #_(defn- get-node-id-2-var []
     (get-in tpn-info [:expr-details :nid-2-var]))
 
-#_(defn nid-2-var-range
-    "Return node-id to range var mapping"
-    [nid-2-var]
-    (reduce (fn [result [nid vars]]
-              (let [range-vars (filter (fn [var]
-                                         (rutil/is-range-var? var))
-                                       vars)
-                    range-var (first range-vars)]
-
-                (if-not (nil? range-var)
-                  (conj result {nid range-var})
-                  result)))
-            {} nid-2-var))
-
-; compute expr bindings from tpn state
-;  * Find objects that have reached, and find their end-time
-;  * exprs that refer to any of the reached object will have their to-var set to the end-time
-(defn temporal-bindings-from-tpn-state                      ;WORKs with shape of data returned from nid-2-var-range
-
-  [nid-2-var obj-times]
-  ;(println "obj-times")
-  ;(pprint obj-times)
-  ;(println "nid-2-var")
-  ;(pprint nid-2-var)
-  (reduce (fn [result [uid time]]
-            (conj result {(uid nid-2-var) time}))
-          {} obj-times))
-
 #_(defn- get-choice-var [uid node-vars]
     (first (filter rutil/is-select-var? node-vars)))
 
@@ -283,6 +255,9 @@
           (do (util/debug-object "Error in Activity state" act check-activity-state)
               :error))))
 
+(defn get-activity-state [act]
+  (check-activity-state act @state))
+
 ; TODO Add to some protocol
 (defn node-dispatched?
   "A node is dispatched if it has start-time"
@@ -297,8 +272,8 @@
   (when node
     (first (check-node-state node state objs))))
 
-(defn- activity-started? [act state]
-  (= :dispatched (check-activity-state act state)))
+(defn activity-started? [act]
+  (= :dispatched (check-activity-state act @state)))
 
 (defn- activity-finished? [act state]
   (= :finished (check-activity-state act state)))
@@ -712,8 +687,8 @@
                                      (:end-node (util/get-object act-id tpn))) failed))]
       failed))
 
-(defn activity-failed [failed-act-id tpn]
+(defn activity-failed [failed-act-id tpn fail-time]
   (let [act-state (check-activity-state (util/get-object failed-act-id tpn) @state)]
     (if (= act-state :dispatched)
-      (util/walker failed-act-id (make-fail-walker tpn (pt-timer/getTimeInSeconds)))
+      (util/walker failed-act-id (make-fail-walker tpn fail-time))
       (do (println "Failed activity" failed-act-id "state is " act-state)))))

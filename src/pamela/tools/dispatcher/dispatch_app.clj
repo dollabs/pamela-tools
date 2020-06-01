@@ -548,17 +548,32 @@
     (cancel-plant-activities acts (* time 1000))))
 
 (defn act-failed-handler [act-id]
-  (let [failed-ids (dispatch/activity-failed act-id (get-tpn))
-        act-label (:display-name (util/get-object act-id (:tpn-map @state)))]
-    (when failed-ids
-      (println "Not dispatching rest of activities as activity failed" act-id ":" act-label)
-      #_(println "failed ids" (count failed-ids) failed-ids)
-      (planviz/failed (get-planviz) failed-ids (get-network-id))
-      #_(dispatch/failed-objects failed-ids (util/getTimeInSeconds))
-      (when (dispatch/network-finished? (get-tpn))
-        (println "Network failed due to failed activity" act-id)
-        (if tpn-failed-cb (tpn-failed-cb (get-tpn)))
-        (handle-tpn-finished (get-network-id))))))
+  (let [tpn (get-tpn)
+        act-obj (util/get-object act-id tpn)
+        ; only a started activity can fail.
+        ; activity in any other state such as cancel, cancelled, or finished cannot fail.
+        started? (dispatch/activity-started? act-obj)]
+
+    (when started?
+      (let [fail-time (pt-timer/getTimeInSeconds)
+            ; Calling get-node-started-time before activity-failed because activity-failed
+            ; updates node time for all the nodes that could possibly fail along the path
+            node-state (dispatch/get-node-started-times tpn)
+            ; the received node-state does not has node-state for act-objs
+            node-state (merge node-state {(:end-node act-obj) fail-time})
+            ;_ (do (println "node-state")
+            ;      (pprint node-state))
+            failed-ids (dispatch/activity-failed act-id tpn fail-time)
+            act-label (:display-name (util/get-object act-id (:tpn-map @state)))]
+        (when failed-ids
+          (println "Not dispatching rest of activities as activity failed" act-id ":" act-label)
+          #_(println "failed ids" (count failed-ids) failed-ids)
+          (planviz/failed (get-planviz) failed-ids (get-network-id))
+          #_(dispatch/failed-objects failed-ids (util/getTimeInSeconds))
+          (when (dispatch/network-finished? (get-tpn))
+            (println "Network failed due to failed activity" act-id)
+            (if tpn-failed-cb (tpn-failed-cb (get-tpn) node-state))
+            (handle-tpn-finished (get-network-id))))))))
 
 (defn get-non-plant-msg-type
   "Non plant message is:
