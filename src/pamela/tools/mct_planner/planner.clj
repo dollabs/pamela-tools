@@ -74,32 +74,44 @@
                         sol))
                     solutions)))
 
-(defn solve [tpn & [bindings n-iterations]]
-  "bindings are assumed to be nil or expression variables and their values.
-  Use temporal-bindings-from-tpn-state to convert from node bindings to expression bindings"
+(defn solve-internal [tpn exprs nid-to-var var-to-nid-lu n-iterations expression-bindings]
   (let [n-iterations (or n-iterations 1)
-        exprs-details (expr/make-expressions-from-map tpn)
-        exprs (:all-exprs exprs-details)
-        nid-to-var (:nid-2-var exprs-details)
-        var-to-nid-lu (:var-2-nid exprs-details)
-        solutions (solver/solve exprs nid-to-var n-iterations bindings)
-        ;_ (def tmp-solutions solutions)
+        solutions (solver/solve exprs nid-to-var n-iterations expression-bindings)
         good-solution (first (find-first-success-solution solutions))
         new-bindings (when good-solution
-            (let [var-bindings (filter-temporal-choice-bindings (:bindings good-solution))]
-              (var-to-node-bindings var-bindings var-to-nid-lu)))]
+                       (let [var-bindings (filter-temporal-choice-bindings (:bindings good-solution))]
+                         (var-to-node-bindings var-bindings var-to-nid-lu)))
+        ]
     (println "solutions" (count solutions))
     (pprint (:metrics good-solution))
     {
-     :tpn               tpn
-     :previous-bindings bindings
-     :bindings          new-bindings
-     :nid-2-var nid-to-var
+     :tpn                          tpn
+     :previous-expression-bindings expression-bindings
+     :bindings                     new-bindings
+     :nid-2-var                    nid-to-var
      ; For my debug purpose
      ;:var-bindings var-bindings
      ;:expr-details exprs-details
      ;:solution     good-solution
-     }))
+     }
+    ))
+
+(defn solve [tpn & [bindings n-iterations]]
+  "bindings are assumed to be nil or expression variables and their values.
+  Use temporal-bindings-from-tpn-state to convert from node bindings to expression bindings"
+  (let [exprs-details (expr/make-expressions-from-map tpn)
+        exprs (:all-exprs exprs-details)
+        nid-to-var (:nid-2-var exprs-details)
+        var-to-nid-lu (:var-2-nid exprs-details)]
+    (solve-internal tpn exprs nid-to-var var-to-nid-lu n-iterations bindings)))
+
+(defn solve-with-node-bindings [tpn node-bindings n-iterations]
+  (let [exprs-details (expr/make-expressions-from-map tpn)
+        exprs (:all-exprs exprs-details)
+        nid-to-var (:nid-2-var exprs-details)
+        var-to-nid-lu (:var-2-nid exprs-details)]
+    (merge (solve-internal tpn exprs nid-to-var var-to-nid-lu n-iterations (temporal-bindings-from-tpn-state nid-to-var node-bindings))
+           {:previous-bindings node-bindings})))
 
 ;(pprint ["Bindings" (-> x :solution :bindings)
 ;         "Node bindings" (-> x :solution :node-bindings)

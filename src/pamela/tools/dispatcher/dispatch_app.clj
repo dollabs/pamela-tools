@@ -423,7 +423,7 @@
         cnst-id (if x (first x))]
     (if cnst-id (:value (cnst-id tpn)))))
 
-(defn handle-tpn-failed [tpn]
+(defn handle-tpn-failed [tpn node-state]
   (println "TPN Failed" (:network-id tpn)))
 
 (defn handle-activity-timeout
