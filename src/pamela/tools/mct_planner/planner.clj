@@ -20,7 +20,6 @@
                         {varid value}
                         {}))) {} expr-var-bindings))
 
-
 (defn var-to-node-bindings [var-bindings var-2-nid-lu]
   ;(println "var-bindings")
   ;(pprint var-bindings)
@@ -38,21 +37,64 @@
                     :else res)))
           {} var-bindings))
 
-(defn solve [tpn bindings]
-  (let [exprs-details (expr/make-expressions-from-map tpn)
+(defn- nid-2-var-range
+  "Return node-id to range var mapping"
+  [nid-2-var]
+  (reduce (fn [result [nid vars]]
+            (let [range-vars (filter (fn [var]
+                                       (ru/is-range-var? var))
+                                     vars)
+                  range-var (first range-vars)]
+
+              (if-not (nil? range-var)
+                (conj result {nid range-var})
+                result)))
+          {} nid-2-var))
+
+;; Example
+;:nid-2-var {:node-17 #{:v2 :v2-range :v2-select :v2-reward :v2-cost},
+;            :node-1 #{:v3-reward :v3-range :v3-cost :v3 :v3-select},
+;            :node-12 #{:v1 :v1-range :v1-reward :v1-select :v1-cost},
+;            :node-7 #{:v0-range :v0 :v0-reward :v0-cost :v0-select}}}
+(defn temporal-bindings-from-tpn-state
+  "
+  obj-times is time reached for each node in tpn
+  Replaces node ids of obj-times with corresponding var ids
+  nid-2-var is as produced by expression creator
+  "
+  [nid-2-var obj-times]
+  (let [temporal-nid-2-var (nid-2-var-range nid-2-var)]
+    (reduce (fn [result [uid time]]
+              (conj result {(uid temporal-nid-2-var) time}))
+            {} obj-times)))
+
+(defn find-first-success-solution [solutions]
+  (remove nil? (map (fn [sol]
+                      (if (= 0 (get-in sol [:metrics :fail-count]))
+                        sol))
+                    solutions)))
+
+(defn solve [tpn & [bindings n-iterations]]
+  "bindings are assumed to be nil or expression variables and their values.
+  Use temporal-bindings-from-tpn-state to convert from node bindings to expression bindings"
+  (let [n-iterations (or n-iterations 1)
+        exprs-details (expr/make-expressions-from-map tpn)
         exprs (:all-exprs exprs-details)
         nid-to-var (:nid-2-var exprs-details)
         var-to-nid-lu (:var-2-nid exprs-details)
-        solutions (solver/solve exprs nid-to-var 1 bindings)
-        good-solution (first solutions)
-        var-bindings (filter-temporal-choice-bindings (:bindings good-solution))
-        new-bindings (var-to-node-bindings var-bindings var-to-nid-lu)]
+        solutions (solver/solve exprs nid-to-var n-iterations bindings)
+        ;_ (def tmp-solutions solutions)
+        good-solution (first (find-first-success-solution solutions))
+        new-bindings (when good-solution
+            (let [var-bindings (filter-temporal-choice-bindings (:bindings good-solution))]
+              (var-to-node-bindings var-bindings var-to-nid-lu)))]
     (println "solutions" (count solutions))
     (pprint (:metrics good-solution))
     {
      :tpn               tpn
      :previous-bindings bindings
      :bindings          new-bindings
+     :nid-2-var nid-to-var
      ; For my debug purpose
      ;:var-bindings var-bindings
      ;:expr-details exprs-details
