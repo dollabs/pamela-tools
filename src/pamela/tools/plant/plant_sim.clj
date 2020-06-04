@@ -10,7 +10,7 @@
   ^{:doc "An application that simulates execution of activities."}
   (:gen-class)
   (:require [pamela.tools.utils.tpn-json :as tpn-json]
-            [pamela.tools.utils.util :refer :all]
+            [pamela.tools.utils.util :as pt-utils]
             [pamela.tools.utils.rabbitmq :as rmq]
             [pamela.tools.utils.timer :as pt-timer]
             [clojure.pprint :refer :all]
@@ -73,7 +73,7 @@
         network (get @networks netid)
         constraints (filter (fn [constraint]
                               (= :temporal-constraint (:tpn-type constraint))
-                              ) (get-constraints act-id network))
+                              ) (pt-utils/get-constraints act-id network))
         ub (if (and use-temporal-bounds (pos? (count constraints)))
              (second (:value (first constraints))))
         time-precedence (if ub
