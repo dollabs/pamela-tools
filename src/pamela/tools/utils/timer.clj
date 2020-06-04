@@ -18,6 +18,10 @@
 (def use-sim-time false)
 (defonce clock (atom 0))
 
+(defn reset-timer []
+  (timer/cancel! timer)
+  (def timer (timer/deamon-timer "Clock generator")))
+
 (defn set-use-sim-time [val]
   ;{:pre [((ol))]}
   (println "Pamela Tools timer use-sim-clock" val)
