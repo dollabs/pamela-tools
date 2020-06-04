@@ -433,3 +433,106 @@
 
 (defn collect-tpn-ids [tpn]
   (walker (:uid (get-begin-node tpn)) (make-bfs-walk tpn)))
+
+(defn filter-activities [tpn]
+  (filter (fn [obj]
+            (= :activity (:tpn-type obj))) (vals tpn)))
+
+(defn get-plant-ids [tpn]
+  (let [ids (into #{} (remove nil? (map (fn [act-obj]
+                                          (:plant act-obj)) (filter-activities tpn))))]
+    (if (empty? ids)
+      #{"plant"} ids)))
+
+(defn rmq-data-to-string [data]
+  (String. data "UTF-8"))
+
+(defn rmq-data-to-clj
+  "Convert bytes received from RMQ callback to clojure native data structure
+  Assumes bytes represent json string"
+  [data]
+  (map-from-json-str (rmq-data-to-string data)))
+
+(defn copy-next-action [next-action from-id to-id]
+  (if (nil? (get next-action from-id))
+    (to-std-err (println "copy-next-action for to-id" to-id "from-id" from-id "not found in" next-action)
+                next-action)
+    (merge next-action {to-id (from-id next-action)})))
+
+(defn- make-next-action [obj next-actions tpn]
+  ;(println "obj" obj)
+  ;(println "next actions")
+  ;(pprint next-actions)
+  (cond (nil? obj)
+        next-actions
+
+        (contains? next-actions (:uid obj))
+        next-actions
+
+        (or (= :null-activity (:tpn-type obj))
+            (= :activity (:tpn-type obj))
+            (= :delay-activity (:tpn-type obj)))
+        (do
+          ;(println "got" (:uid obj) (:tpn-type obj))
+          (copy-next-action (make-next-action (get-end-node-activity obj tpn) next-actions tpn)
+                            (:end-node obj)
+                            (:uid obj)))
+
+        (= :state (:tpn-type obj))
+        (do
+          ;(println "got" (:uid obj) (:tpn-type obj))
+          (if (not (empty? (:activities obj)))
+            (let [act-id (first (:activities obj))
+                  act-obj (get-object act-id tpn)]
+
+              (if (= :activity (:tpn-type act-obj))         ;state node has activity, so next action is the activity
+                (conj next-actions {(:uid obj) [act-obj]})
+                ; state node has delay or null activity, so next action is whatever is the next action for null/delay activity
+                (copy-next-action (make-next-action act-obj next-actions tpn) act-id (:uid obj))
+                ))
+            ; state node is end node of the sequence. So no next actions
+            (conj next-actions {(:uid obj) []})))
+
+        (or (= :p-begin (:tpn-type obj))
+            (= :c-begin (:tpn-type obj)))
+        (do
+          ;(println "got" (:uid obj) (:tpn-type obj))
+          (let [collected-acts (reduce (fn [res act-id]
+                                         (conj res (make-next-action (get-object act-id tpn) next-actions tpn)))
+                                       next-actions (:activities obj))]
+            ;(println "collected acts for node" (:tpn-type obj) (:activities obj))
+            ;(pprint collected-acts)
+            (conj collected-acts {(:uid obj) (reduce (fn [res act-id]
+                                                       (into res (act-id collected-acts)))
+                                                     [] (:activities obj))})))
+
+        (or (= :p-end (:tpn-type obj))
+            (= :c-end (:tpn-type obj)))
+        (do
+          ;(println "got" (:uid obj) (:tpn-type obj))
+          (if (not (empty? (:activities obj)))
+            (copy-next-action (make-next-action (get-object (first (:activities obj)) tpn)
+                                                next-actions
+                                                tpn)
+                              (first (:activities obj)) (:uid obj))
+            ; node is the last node of the TPN and hence no next actions
+            (conj next-actions {(:uid obj) []})))
+
+        :else
+        (to-std-err #_(println "Unknown object")
+          #_(pprint obj)
+          next-actions)))
+
+(defn make-next-actions
+  "For given tpn nodes and activities, create a map of id to a list of activity objects
+  The list of activity objects contains list of next dispatchable set of activities.
+  i.e it won't have any null activities.
+  If the next activity is part of a sequence, then the list will contain 1 activity
+  If the next activity is part of choice of parallel node, then the list will contain all
+  the activities of the node.
+  "
+  [tpn]
+  (reduce (fn [res act-obj]
+            (let [x (make-next-action act-obj res tpn)]
+              (conj res x)))
+          {} (vals (get-nodes-or-activities tpn))))
