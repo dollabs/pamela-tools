@@ -233,14 +233,3 @@
       (pi/close-connection @plant-connection)
       (reset! plant-connection nil)
       (setup coin-model plant-id rmq-exchange host port))))
-
-; TODO Decide what to do with this function!
-#_(defn generate-observations [count file]
-    (let [obs  (into [] (collect-samples count))
-          data {:obserations  obs
-                :states       #{:biased :unbiased}
-                :emit-symbols #{:heads :tails}
-                :ground-truth {:emit-p  emit-matrix
-                               :state-p transition-matrix}
-                }]
-      (tpn.fromjson/to-file data file)))
