@@ -735,6 +735,7 @@
   (let [netid (:network-id tpn-net)
         network (netid tpn-net)
         dispatched (dispatch/dispatch-object network tpn-net {})]
+    (update-state! {:next-actions (util/make-next-actions tpn-net)})
     (println "Dispatching netid" netid (util/getCurrentThreadName))
     (publish-dispatched dispatched tpn-net)))
 
@@ -1000,6 +1001,41 @@
   (let [msg (util/map-from-json-str (String. data "UTF-8"))
         ts (:timestamp msg)]
     (if ts (pt-timer/update-clock ts))))
+
+(defn make-current-next-other-activities []
+  ; get all act ids. exclude null and delay activities
+  ; remove finished activities
+  ; then remove dispatched
+  ; then remove next-actions
+  ; left over is other actions
+
+  (let [tpn (get-tpn)
+        next-acts (:next-actions @state)
+        acts (util/filter-activities tpn)
+        act-ids (into #{} (map :uid acts))
+        act-state (dispatch/get-activities-state tpn)
+        dispatched (dispatch/get-dispatched-activities tpn)
+        dispatched-ids (into #{} (map :uid dispatched))
+        next-activities (reduce (fn [res act]
+                                  (let [act-id (:uid act)]
+                                    (into res (act-id next-acts))))
+                                [] dispatched)
+        next-activities-id (into #{} (map :uid next-activities))
+        finished-ids (into #{} (keys (filter (fn [[_ state]]
+                                               (= :finished state))
+                                             act-state)))
+        other-act-ids (remove finished-ids act-ids)
+        other-act-ids (remove dispatched-ids other-act-ids)
+        other-act-ids (remove next-activities-id other-act-ids)
+        ]
+  {
+   ;:all-activities act-ids
+   ;:finished-acts finished-ids
+   :current-actions (select-keys tpn dispatched-ids)
+   :next-actions (select-keys tpn next-activities-id)
+   :other-actions (select-keys tpn other-act-ids)
+   ;:act-state act-state
+   }))
 
 (defn go [& [args]]
   (let [parsed (cli/parse-opts args cli-options)
