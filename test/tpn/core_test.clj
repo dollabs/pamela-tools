@@ -296,6 +296,10 @@
   (def tpn (dapp/get-tpn))
   (def exprs (planner/solve tpn bindings)))
 
+(defn read-all-tpns []
+  (reduce (fn [res tpn]
+            (conj res (tpn_json/from-file tpn))
+            ) [] all-tpns))
 ; Manual testing
 ; - With plant sim, all TPNs should dispatch and finish as expected. Some temporal constraints will fail because of
 ; timing issues but there should not be any exceptions/errors
