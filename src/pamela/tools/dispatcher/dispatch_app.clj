@@ -57,7 +57,7 @@
 (defonce stop-when-rt-exceptions true)
 (defonce activity-started-q (async/chan))
 (defonce observations-q (async/chan))
-(defonce tpn-failed-cb handle-tpn-failed)                                 ; when tpn is failed, this callback will be called
+(defonce tpn-failed-cb nil)                                 ; when tpn is failed, this callback will be called
 
 ; Event handler agent. To simply serialize all events
 (defonce event-handler (agent {}))
@@ -423,14 +423,16 @@
         cnst-id (if x (first x))]
     (if cnst-id (:value (cnst-id tpn)))))
 
-(defn handle-tpn-failed [tpn node-state]
-  (println "TPN Failed" (:network-id tpn)))
+(defn handle-tpn-failed [tpn node-state fail-reasons]
+  (println "TPN Failed" (:network-id tpn))
+  (println "Reason for each activity failure")
+  (pprint fail-reasons))
 
 (defn handle-activity-timeout
   "To be called when an activity has temporal bounds"
   [act-id]
   (println act-id "timed out")
-  (act-failed-handler act-id))
+  (act-failed-handler act-id :timeout))
 
 (defn schedule-activity-timeouts [activities tpn]
   (println "schedule-activity-timeouts")
@@ -547,7 +549,7 @@
     (planviz/cancel (:planviz @state) acts (get-network-id))
     (cancel-plant-activities acts (* time 1000))))
 
-(defn act-failed-handler [act-id]
+(defn act-failed-handler [act-id reason]
   (let [tpn (get-tpn)
         act-obj (util/get-object act-id tpn)
         ; only a started activity can fail.
@@ -563,16 +565,19 @@
             node-state (merge node-state {(:end-node act-obj) fail-time})
             ;_ (do (println "node-state")
             ;      (pprint node-state))
-            failed-ids (dispatch/activity-failed act-id tpn fail-time)
+            failed-ids (dispatch/activity-failed act-id tpn fail-time reason)
             act-label (:display-name (util/get-object act-id (:tpn-map @state)))]
         (when failed-ids
           (println "Not dispatching rest of activities as activity failed" act-id ":" act-label)
-          #_(println "failed ids" (count failed-ids) failed-ids)
+          ;(println "failed ids" (count failed-ids) failed-ids)
           (planviz/failed (get-planviz) failed-ids (get-network-id))
           #_(dispatch/failed-objects failed-ids (util/getTimeInSeconds))
           (when (dispatch/network-finished? (get-tpn))
             (println "Network failed due to failed activity" act-id)
-            (if tpn-failed-cb (tpn-failed-cb (get-tpn) node-state))
+            (let [fail-reasons (dispatch/get-fail-reason)]
+              (if tpn-failed-cb (tpn-failed-cb (get-tpn) node-state fail-reasons)
+                                (handle-tpn-failed (get-tpn) node-state fail-reasons)))
+
             (handle-tpn-finished (get-network-id))))))))
 
 (defn get-non-plant-msg-type
@@ -616,7 +621,7 @@
   (doseq [[_ v] msg]
     (when (:tpn-object-state v)
       #_(println "handle-activity-message :failed" (:uid v))
-      (act-failed-handler (:uid v)))))
+      (act-failed-handler (:uid v) :other))))
 
 (defmethod handle-activity-message :cancelled [msg]
   ;(pprint msg)

@@ -660,7 +660,8 @@
               ;(pprint pending-finished)
               ;(println "failed" failed)
               (if node-failed?
-                [[uid] (into [] (:activities obj))]
+                (do (failed-objects [uid] fail-time)
+                    [[uid] (into [] (:activities obj))])
                 [[] []]))
 
             :else
@@ -687,8 +688,21 @@
                                      (:end-node (util/get-object act-id tpn))) failed))]
       failed))
 
-(defn activity-failed [failed-act-id tpn fail-time]
+(defn get-fail-reason
+  "For activities that have failed, return the act-id and reason for failure"
+  []
+  (reduce (fn [res [act-id data]]
+            (let [reason (get data :fail-reason)]
+              (if reason (conj res {act-id reason})
+                         res)))
+          {} @state))
+
+(defn activity-failed [failed-act-id tpn fail-time reason]
+  ;(println failed-act-id fail-time reason)
   (let [act-state (check-activity-state (util/get-object failed-act-id tpn) @state)]
     (if (= act-state :dispatched)
-      (util/walker failed-act-id (make-fail-walker tpn fail-time))
+      (do
+        ; update fail reason only for the activity
+        (update-state [failed-act-id :fail-reason] reason)
+        (util/walker failed-act-id (make-fail-walker tpn fail-time)))
       (do (println "Failed activity" failed-act-id "state is " act-state)))))
