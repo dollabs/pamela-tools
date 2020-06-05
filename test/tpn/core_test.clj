@@ -79,7 +79,8 @@
     #_(tpn.fromjson/from-file "./test/data/create-parallel-ex.json")
     ))
 
-(deftest example-tpn
+; TPN code is now created by pamela.
+#_(deftest example-tpn
   (testing "TPN To and From file"
     (let [objects (trecords/create-parallel-ex)
           net ((:network-id objects) objects)

@@ -157,7 +157,7 @@
 
 (def choice-pamela (timport/from-file "./test/data/choice.json"))
 
-(def par-choice-pamela (timport/from-file "./test/data/parallel-and-choice.json"))
+(def par-choice-pamela (timport/from-file "./test/data/parallel-and-choice.tpn.json"))
 
 (defn check-par-dispatch []
   (check-dispatch par-example))

@@ -163,13 +163,13 @@
     "tpn-type": "null-activity",
     "uid": "na-82"
   },
-  "net-3": {
+  "net-3-parallel-and-choice": {
     "begin-node": "node-13",
     "end-node": "node-62",
     "tpn-type": "network",
-    "uid": "net-3"
+    "uid": "net-3-parallel-and-choice"
   },
-  "network-id": "net-3",
+  "network-id": "net-3-parallel-and-choice",
   "node-12": {
     "activities": [
       "na-39"
