@@ -10,7 +10,7 @@
   "RMQ connection interface abstraction and support for Plant messages"
   (:require [pamela.tools.plant.interface :refer :all]
             [pamela.tools.utils.rabbitmq :as mq]
-
+            [pamela.tools.utils.timer :as timekeeper]
             [langohr.core :as lcore]
             [langohr.basic :as lb]
 
@@ -27,10 +27,10 @@
   #_(println "finish helper" {:id        id
                               :plant-id  (or plant-id "plant")
                               :state     :finished
-                              :timestamp (or timestamp (System/currentTimeMillis))
+                              :timestamp (or timestamp (timekeeper/get-unix-time))
                               :reason    (assoc-in reason [:finish-state] state)}
              )
-  (publish plant-connection "observations" {:id     id :plant-id (or plant-id "plant") :state :finished :timestamp (or timestamp (System/currentTimeMillis))
+  (publish plant-connection "observations" {:id     id :plant-id (or plant-id "plant") :state :finished :timestamp (or timestamp (timekeeper/get-unix-time))
                                             :reason (assoc-in reason [:finish-state] state)}))
 
 (defrecord plant-connection [exchange config]
@@ -81,18 +81,18 @@
                                                      :function-name function-name
                                                      :args          args
                                                      :argsmap       argsmap :plant-part plant-part
-                                                     :timestamp     (or timestamp (System/currentTimeMillis))}))
+                                                     :timestamp     (or timestamp (timekeeper/get-unix-time))}))
 
   (started [plant-connection plant-id id timestamp]
     (if debug
       (println "plant-id" plant-id "id" id "time-stamp" timestamp))
     (publish plant-connection "observations" {:id        id :plant-id (or plant-id "plant") :state :started
-                                              :timestamp (or timestamp (System/currentTimeMillis))}))
+                                              :timestamp (or timestamp (timekeeper/get-unix-time))}))
 
   (status-update [plant-connection plant-id id completion-time percent-complete timestamp]
     (publish plant-connection "observations" (conj {:id              id :plant-id (or plant-id "plant")
                                                     :state           :status-update
-                                                    :timestamp       (or timestamp (System/currentTimeMillis))
+                                                    :timestamp       (or timestamp (timekeeper/get-unix-time))
                                                     :completion-time completion-time}
 
                                                    (when percent-complete
@@ -110,14 +110,14 @@
     (finish-helper plant-connection plant-id id reason timestamp :cancelled))
 
   (cancel [plant-connection plant-id id timestamp]
-    (publish plant-connection (or plant-id "plant") {:id id :state :cancel :timestamp (or timestamp (System/currentTimeMillis))}))
+    (publish plant-connection (or plant-id "plant") {:id id :state :cancel :timestamp (or timestamp (timekeeper/get-unix-time))}))
 
   (observations [plant-connection plant-id id observations timestamp]
     (println "observations" observations)
     (if (pos? (count observations))
       (publish plant-connection "observations" {:id           id :plant-id (or plant-id "plant") :state :observations
                                                 :observations observations
-                                                :timestamp    (or timestamp (System/currentTimeMillis))}))))
+                                                :timestamp    (or timestamp (timekeeper/get-unix-time))}))))
 
 (defn make-plant-connection [exchange config]
   (setup-connection (plant-connection. exchange config)))
