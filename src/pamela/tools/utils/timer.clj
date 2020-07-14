@@ -12,7 +12,8 @@
   (:require [pamela.tools.utils.util :as pt-util]
             [ruiyun.tools.timer :as timer]
             [clojure.core.async :as async]
-            ))
+            )
+  (:import (java.time Instant)))
 
 (defonce timer (timer/deamon-timer "Pamela tools timer"))
 (def use-sim-time false)
@@ -122,6 +123,13 @@
             (not (nil? (:time m))))
      (:time m)
      (getTimeInSeconds))))
+
+(defn make-instant [& [millis]]
+  (if millis (Instant/ofEpochMilli (long millis))
+             (Instant/now (get-unix-time))))
+
+(defn make-instant-seconds [seconds]
+  (make-instant (* 1000 seconds)))
 
 (defn- schedule-test []
   (doseq [t (range 1 10)]
