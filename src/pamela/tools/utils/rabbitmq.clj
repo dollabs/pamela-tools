@@ -120,3 +120,21 @@
   (let [data (String. payload "UTF-8")
         js (tpn-json/map-from-json-str data)]
     js))
+
+;;; Helper functions for various messages
+;;; rmq-map is map object return by make-channel
+
+(defn- activity-msg-helper [act-id network-id object-state routing-key rmq-map]
+  (publish-object {:network-id network-id
+                   act-id      {:uid              act-id
+                                :tpn-object-state object-state}}
+                  routing-key
+                  (:channel rmq-map)
+                  (:exchange rmq-map)))
+
+(defn classic-activity-failed
+  [act-id network-id rmq-map]
+  (activity-msg-helper act-id network-id :failed "tpn.activity.finished" rmq-map))
+
+(defn classic-activity-start [act-id network-id rmq-map]
+  (activity-msg-helper act-id network-id :negotiation "tpn.activity.negotiation" rmq-map))
