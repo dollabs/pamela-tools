@@ -274,6 +274,12 @@
 ;;; scratch
 (defonce test-data [])
 
+(defn read-log-file [fname]
+  (reduce (fn [res line]
+            (let [[_ data] (make-event line)]
+              (conj res data)))
+          [] (util/read-lines fname)))
+
 ;;load only events from csv file into test-data
 (defn load-test-data [fname]
   (let [lines (util/read-lines fname)
