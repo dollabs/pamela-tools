@@ -342,7 +342,7 @@
                       :else x))
               bindings))
 
-(defn string-to-infinity
+(defn convert-json-bindings-to-clj
   "If any of the element is \"Infinity\" or \"-Infinity\" then convert it to corresponding
   java.lang.double version"
   [bindings]
@@ -351,6 +351,8 @@
                       java.lang.Double/POSITIVE_INFINITY
                       (= x (str java.lang.Double/NEGATIVE_INFINITY))
                       java.lang.Double/NEGATIVE_INFINITY
+                      (and (vector? x) (= :to-node (first x)))
+                      [:to-node (keyword (second x))]
                       :else x))
               bindings))
 
@@ -536,3 +538,14 @@
             (let [x (make-next-action act-obj res tpn)]
               (conj res x)))
           {} (vals (get-nodes-or-activities tpn))))
+
+(defn get-all-threads
+  "fn to return threads sorted by their run time state"
+  []
+  #_(doseq [th (keys (Thread/getAllStackTraces))]
+    (println (.getName th) (.name (.getState th))))
+  (group-by (fn [x]
+              (second x))
+            (sort-by first (map (fn [th]
+                                  [(.getName th) (.name (.getState th))])
+                                (keys (Thread/getAllStackTraces))))))
