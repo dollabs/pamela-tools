@@ -27,12 +27,15 @@
 (defn set-dispatch-all-choices [val]
   (def dispatch-all-choices val))
 
+(defn make-printable-time-seconds [secs]
+  (str (pt-timer/make-instant-seconds secs)))
+
 (defn- update-state
   "uses update-in to update state atom"
   [keys value]
   (if-not value
     (util/to-std-err (println "Warn: update-state value is nil for keys:" keys)))
-
+  ;(println "update-state" keys value (if (number? value) (make-printable-time-seconds value)))
   (let [pre-cond (every? #(not (nil? %)) keys)]
     (if-not pre-cond
       (util/to-std-err (println "Error: update-state at least one of the keys is nil: Won't update, Given keys" keys))
@@ -91,9 +94,27 @@
   (println "dispatch/reset-state")
   (reset! state {}))
 
+(defn print-node-bindings [bindings]
+  (doseq [[nid {time-val :temporal-value}] bindings]
+    ;(println nid time-val)
+    (cond (number? time-val)
+          (println nid ": temporal value: " (str (pt-timer/make-instant-seconds (long time-val))))
+          (vector? time-val)
+          (println nid ": temporal value: " (str "["
+                                                 (pt-timer/make-instant-seconds  (long (first time-val)))
+                                                 " "
+                                                 (if (= time-val java.lang.Double/POSITIVE_INFINITY)
+                                                   (str time-val)
+                                                   #_(pt-timer/make-instant  (long (second time-val))))
+                                                 "]")))))
+
 (defn set-node-bindings
   "Provided by planner. Used to determine which choice to take"
   [bindings]
+  ;(println "dispatch state")
+  ;(pprint @state)
+  ;(println "Node bindings")
+  ;(print-node-bindings bindings)
   (update-state [:tpn-bindings] bindings))
 
 #_(defn set-tpn-info [tpn-map exprs-details]
@@ -171,6 +192,7 @@
 (defn- update-dispatch-state! [uid key value]
   "Updates the runtime state of the object identified by uid"
   #_(println "update-state" uid key value)
+  ;(println "update-state" [uid key] value (if (number? value) (str (pt-timer/make-instant-seconds value))))
   (if-not uid
     (util/debug-object (str "Cannot update run time state for nil uid " key " " value) nil update-dispatch-state!)
     (do (when (get-in @state [uid key])
@@ -341,7 +363,7 @@
 (defmethod dispatch-object :default [obj _ _]
   (util/debug-object "dispatch-object :default" obj dispatch-object)
   #_(clojure.pprint/pprint obj)
-  {(:uid obj) {:uid (:uid obj) :tpn-object-state :unkown}})
+  {(:uid obj) {:uid (:uid obj) :tpn-object-state :unknown}})
 
 (defmethod dispatch-object :p-begin [obj objs m]
   #_(println "p-begin" (:uid obj) (:tpn-type obj) "-----------")
@@ -363,8 +385,8 @@
           m (conj m {:time time})
           first-choice-act (util/get-object (first-choice (:activities obj) nil) objs)
           bindings (:tpn-bindings @state)
-          ;_ (pprint @state)
-          #_(do (println "Bindings")
+          #_ (pprint @state)
+          #_ (do (println "Bindings")
                 (pprint bindings))
           choice-act (if bindings
                        (util/get-object (get-choice-binding
@@ -688,14 +710,38 @@
                                      (:end-node (util/get-object act-id tpn))) failed))]
       failed))
 
+(defn print-time-data [state]
+  (pprint state)
+  (doseq [[uid obj] state]
+    (let [time-vals (select-keys obj #{:start-time :end-time :fail-time})]
+      (when (and time-vals (pos? (count time-vals)))
+        (println uid ":\n\tstart-time" (str (pt-timer/make-instant-seconds (:start-time obj))))
+        (println "\tend-time" (str (pt-timer/make-instant-seconds (:end-time obj))))
+        (println "\tfail-time" (str (pt-timer/make-instant-seconds (:fail-time obj))))))
+    ))
+
 (defn get-fail-reason
   "For activities that have failed, return the act-id and reason for failure"
-  []
-  (reduce (fn [res [act-id data]]
-            (let [reason (get data :fail-reason)]
-              (if reason (conj res {act-id reason})
-                         res)))
-          {} @state))
+  [tpn]
+  (let [acts (reduce (fn [res [act-id data]]
+                       (let [reason (get data :fail-reason)]
+                         (if reason (conj res {act-id reason})
+                                    res)))
+                     {} @state)
+        choice-end-nodes (remove nil? (map (fn [uid]
+                                             (let [obj (util/get-object uid tpn)]
+                                               (when (and obj (= :c-end (:tpn-type obj)))
+                                                 obj)))
+                                           (keys @state)))
+        _ (pprint choice-end-nodes)
+        node-state (reduce (fn [res node-obj]
+                             (let [node-acts (:incidence-set node-obj)
+                                   act-state (select-keys acts acts)]
+                               (conj res (if (and dispatch-all-choices (= node-acts (keys act-state)))
+                                           {(:uid node-obj) :choice-all-activities-failed}
+                                           {(:uid node-obj) :choice-some-activities-failed}))))
+                           {}  choice-end-nodes)]
+    (merge acts node-state)))
 
 (defn activity-failed [failed-act-id tpn fail-time reason]
   ;(println failed-act-id fail-time reason)
