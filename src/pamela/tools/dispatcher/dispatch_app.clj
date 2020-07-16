@@ -58,6 +58,7 @@
 (defonce activity-started-q (async/chan))
 (defonce observations-q (async/chan))
 (defonce tpn-failed-cb nil)                                 ; when tpn is failed, this callback will be called
+(defonce tpn-finished-cb nil)                               ; when tpn is finishes, this callback will be called
 
 ; Event handler agent. To simply serialize all events
 (defonce event-handler (agent {}))
@@ -67,6 +68,9 @@
 
 (defn set-tpn-failed-handler [fn]
   (def tpn-failed-cb fn))
+
+(defn set-tpn-finished-handler [fn]
+  (def tpn-finished-cb fn))
 
 (defn reset-rt-exception-state []
   (reset! rt-exceptions []))
@@ -414,6 +418,8 @@
       (println "command finished" new-info)
       (plant_i/finished (:plant-interface @state) (name (:plant-id old-state)) (:dispatch-id old-state) nil nil))
     (update-tpn-dispatch-state! new-state))
+  (when tpn-finished-cb
+    (tpn-finished-cb (get-tpn)))
   ;(println "Sleep before exit")
   ;(Thread/sleep 1000)
   (exit))
@@ -440,9 +446,16 @@
   (doseq [act-id (keys activities)]
     (let [bounds (get-temporal-bounds act-id tpn)]
       (println "Activity bounds" act-id ":" bounds)
-      (when bounds (pt-timer/schedule-task (fn []
-                                             (handle-activity-timeout act-id))
-                                           (* 1000 (second bounds)))))))
+      (when bounds
+        (let [before (pt-timer/get-unix-time)]
+          (pt-timer/schedule-task (fn []
+                                    #_(let [now (pt-timer/make-instant (pt-timer/get-unix-time))]
+                                      (println act-id "timed out"
+                                               "\nstart:" (str (pt-timer/make-instant before))
+                                               "\nnow: " (str now)
+                                               "\nDuration" (str (java.time.Duration/between (pt-timer/make-instant before) now ))))
+                                    (handle-activity-timeout act-id))
+                                  (* 1000 (second bounds))))))))
 
 (defn publish-dispatched [dispatched tpn-net]
   ;(println "publish-dispatched dispatched" (:network-id tpn-net) (get-in @state [:tpn-map :network-id]) (.getName (Thread/currentThread)))
@@ -574,7 +587,11 @@
           #_(dispatch/failed-objects failed-ids (util/getTimeInSeconds))
           (when (dispatch/network-finished? (get-tpn))
             (println "Network failed due to failed activity" act-id)
-            (let [fail-reasons (dispatch/get-fail-reason)]
+            (let [fail-reasons (dispatch/get-fail-reason (get-tpn))]
+              ;(dispatch/print-state-internal (get-tpn))
+              #_(doseq [[nid time-val] node-state]
+                (println "act-fail-handler" nid ":" (str (pt-timer/make-instant time-val)) ))
+              #_(pprint node-state)
               (if tpn-failed-cb (tpn-failed-cb (get-tpn) node-state fail-reasons)
                                 (handle-tpn-failed (get-tpn) node-state fail-reasons)))
 
@@ -806,7 +823,9 @@
               (dispatch-tpn tpn-net)))))
 
 (defn setup-and-dispatch-tpn-with-bindings [tpn bindings abs-dispatch-time]
-  (println "setup-and-dispatch-tpn-with-bindings")
+  (println "setup-and-dispatch-tpn-with-bindings" abs-dispatch-time)
+  ;(println "bindings")
+  ;(pprint bindings)
   (init-new-tpn tpn)
   (update-state! {:tpn-bindings bindings :tpn-dispatch-time abs-dispatch-time})
   (dispatch/set-node-bindings bindings)
@@ -1032,11 +1051,14 @@
         other-act-ids (remove finished-ids act-ids)
         other-act-ids (remove dispatched-ids other-act-ids)
         other-act-ids (remove next-activities-id other-act-ids)
-        ]
+        current-actions (select-keys tpn dispatched-ids)
+        current-actions (reduce (fn [res [aid act]]
+                                  (conj res {aid (conj act {:plant-invocation-id (dispatch/get-plant-dispatch-id aid)})}))
+                                {} current-actions)]
   {
    ;:all-activities act-ids
    ;:finished-acts finished-ids
-   :current-actions (select-keys tpn dispatched-ids)
+   :current-actions current-actions
    :next-actions (select-keys tpn next-activities-id)
    :other-actions (select-keys tpn other-act-ids)
    ;:act-state act-state
