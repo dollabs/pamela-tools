@@ -68,7 +68,7 @@
               (conj result {(uid temporal-nid-2-var) time}))
             {} obj-times)))
 
-(defn find-first-success-solution [solutions]
+(defn get-successful-solutions [solutions]
   (remove nil? (map (fn [sol]
                       (if (= 0 (get-in sol [:metrics :fail-count]))
                         sol))
@@ -77,13 +77,15 @@
 (defn solve-internal [tpn exprs nid-to-var var-to-nid-lu n-iterations expression-bindings]
   (let [n-iterations (or n-iterations 1)
         solutions (solver/solve exprs nid-to-var n-iterations expression-bindings)
-        good-solution (first (find-first-success-solution solutions))
+        good-solutions (get-successful-solutions solutions)
+        good-solution (first good-solutions)
         new-bindings (when good-solution
                        (let [var-bindings (filter-temporal-choice-bindings (:bindings good-solution))]
                          (var-to-node-bindings var-bindings var-to-nid-lu)))
         ]
-    (println "solutions" (count solutions))
-    (pprint (:metrics good-solution))
+    (println "Total solutions" (count solutions))
+    (println "Good solutions" (or (count good-solutions) 0))
+    (when good-solution (pprint (:metrics good-solution)))
     {
      :tpn                          tpn
      :previous-expression-bindings expression-bindings
@@ -91,7 +93,6 @@
      :nid-2-var                    nid-to-var
      ; For my debug purpose
      ;:var-bindings var-bindings
-     ;:expr-details exprs-details
      ;:solution     good-solution
      }
     ))
@@ -111,7 +112,9 @@
         nid-to-var (:nid-2-var exprs-details)
         var-to-nid-lu (:var-2-nid exprs-details)]
     (merge (solve-internal tpn exprs nid-to-var var-to-nid-lu n-iterations (temporal-bindings-from-tpn-state nid-to-var node-bindings))
-           {:previous-bindings node-bindings})))
+           {:previous-bindings node-bindings
+            :expr-details exprs-details
+            })))
 
 ;(pprint ["Bindings" (-> x :solution :bindings)
 ;         "Node bindings" (-> x :solution :node-bindings)
