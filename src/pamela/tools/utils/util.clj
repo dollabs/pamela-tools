@@ -329,19 +329,6 @@
     (map (fn [line]
            (parse-rmq-logger-json-line line)) lines)))
 
-(defn infinity-to-string
-  "If any of the element is Infinity or -Infinity, stringify it"
-  [bindings]
-  (w/postwalk (fn [x]
-                (cond (= x java.lang.Double/POSITIVE_INFINITY)
-                      (str java.lang.Double/POSITIVE_INFINITY)
-
-                      (= x java.lang.Double/NEGATIVE_INFINITY)
-                      (str java.lang.Double/NEGATIVE_INFINITY)
-
-                      :else x))
-              bindings))
-
 (defn convert-json-bindings-to-clj
   "If any of the element is \"Infinity\" or \"-Infinity\" then convert it to corresponding
   java.lang.double version"
