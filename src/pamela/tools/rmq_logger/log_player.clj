@@ -96,7 +96,7 @@
         (add-event-to-map amap time data)
         (catch Exception e
           (println "add-event error adding line\n" line)
-          (println (.getMessage e)) ))
+          (println (.getMessage e))))
 
       amap)))
 
@@ -227,12 +227,16 @@
   (if-not (setup-rmq host port exchange rkey)
     (System/exit 1))
   (println "Starting events dispatch in " (float (/ start-delay 1000)) "secs")
-  (schedule-events file clock-events))
+  (try
+    (schedule-events file clock-events)
+    (catch Exception e
+      (System/exit 1))))
 
 (defn -main [& args]
   (def repl false)
   (println "Realtime RMQ log player")
-  ;(println "args" (count args) args)
+  ;(println "args" (count args))
+  ;(pprint args)
   (let [parsed (cli/parse-opts args cli-options)
         {help         :help
          host         :host

@@ -20,7 +20,8 @@
             [clojure.set :as set]
             [clojure.java.io :refer :all]
             [clojure.walk :as w]
-            [clojure.data.json :as json]))
+            [clojure.data.json :as json]
+            [clojure.java.io :as io]))
 
 (def debug nil)
 
@@ -255,8 +256,10 @@
 
 (defn read-lines [fname]
   "Read lines from a file"
-  (with-open [r (reader fname)]
-    (doall (line-seq r))))
+  (if (.exists (io/as-file fname))
+    (with-open [r (reader fname)]
+      (doall (line-seq r)))
+    (do (println "file does not exist" fname))))
 
 (defn map-invert
   "Convert map of keys and values to {val #{keys}" [m]
