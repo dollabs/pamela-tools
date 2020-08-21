@@ -108,7 +108,11 @@
 (defn publish-event [data]
   (def events-count (+ events-count (count data)))
   (doseq [event data]
-    (rmq/publish-object event (get-routing-key event) (:channel @rmq) (or (:exchange data) (:exchange @rmq))))
+    (rmq/publish-object (-> event
+                            (dissoc :received-routing-key)
+                            (dissoc :routing-key)
+                            (dissoc :exchange))
+                        (get-routing-key event) (:channel @rmq) (or (:exchange data) (:exchange @rmq))))
 
   #_(println data))
 
