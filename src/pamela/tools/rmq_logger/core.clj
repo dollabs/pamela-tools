@@ -27,7 +27,7 @@
 
   (:import (java.text SimpleDateFormat)
            (java.util Date)
-           (java.util.concurrent LinkedBlockingQueue)))
+           (java.util.concurrent LinkedBlockingQueue TimeUnit)))
 
 (defonce sdf (SimpleDateFormat. "yyyy-MMdd-HHmm"))
 (def received-count 0)
@@ -37,6 +37,7 @@
 (defonce mongo? false)                                      ;default value.
 (defonce msg-q (new LinkedBlockingQueue))
 (defonce read-thread nil)
+(def sig-terminate false)
 (def truncated-output-length "If non-nil, this is the length of the raw-data output"
   (atom nil))
 
@@ -92,10 +93,21 @@
     (println "Blocking read on msg-q on thread" (.getName (Thread/currentThread))))
 
   (try
-    (while true (let [m (.take msg-q)]
-                  (handle-message (:payload m) (:exchange m) (:routing-key m) (:content-type m) (:time m))))
+    (while (false? sig-terminate)                           ;until we receive sigterm
+      (let [m (.poll msg-q 1 TimeUnit/SECONDS)]
+        (when m (handle-message (:payload m) (:exchange m) (:routing-key m) (:content-type m) (:time m)))))
     (catch InterruptedException e
       (util/to-std-err (println "threaded-read interrupted"))))
+
+  (when sig-terminate
+    (util/to-std-err (println "Clearing Q due to SIGTERM" (.size msg-q)))
+    (loop [m (.poll msg-q 1 TimeUnit/SECONDS)]
+      (if-not m
+        nil
+        (do
+          (handle-message (:payload m) (:exchange m) (:routing-key m) (:content-type m) (:time m))
+          (recur (.poll msg-q 1 TimeUnit/SECONDS)))))
+    (util/to-std-err (println "Done Clearing Q due to SIGTERM" (.size msg-q))))
 
   (util/to-std-err (println "done -- threaded-read")))
 
@@ -129,10 +141,16 @@
   (if repl
     (println "in repl mode. Not exiting")))
 
+(defn shutdown []
+  (util/to-std-err (println "Received Control-C "))
+  (def sig-terminate true)
+  (.join read-thread))
+
 ; Print messages as they are flowing through the channel
 (defn -main
   "Tail messages through exchange"
   [& args]
+  (.addShutdownHook (Runtime/getRuntime) (Thread. shutdown))
   (def foo-args args)
   ;; (println "args:" args)
   ;; (println "args type:" (type args))
