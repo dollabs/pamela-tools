@@ -107,7 +107,10 @@
         (do
           (handle-message (:payload m) (:exchange m) (:routing-key m) (:content-type m) (:time m))
           (recur (.poll msg-q 1 TimeUnit/SECONDS)))))
-    (util/to-std-err (println "Done Clearing Q due to SIGTERM" (.size msg-q))))
+
+    (util/to-std-err
+      (println "Messages received so far" received-count)
+      (println "Done Clearing Q due to SIGTERM" (.size msg-q))))
 
   (util/to-std-err (println "done -- threaded-read")))
 
