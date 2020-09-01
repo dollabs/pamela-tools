@@ -28,9 +28,6 @@ pom.xml.asc
 *.jar
 *.zip
 
-# Logs and databases
-*.log
-
 # Java
 /lib
 /pom.xml

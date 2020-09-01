@@ -1,0 +1,4 @@
+raw-data, 0, {}
+raw-data, 1000, {"routing-key": "legacy",  "blah": "blah", "note": "This message should go on legacy routing-key"}
+raw-data, 2000, {"received-routing-key": "modern",  "foo": "bar", "note": "This message should go on modern routing-key but received-routing-key removed"}
+raw-data, 3000, {"received-routing-key": "modern", "routing-key": "legacy" ,"foo": "bar", "note": "This message should go on moden routing-key but received-routing-key removed"}
