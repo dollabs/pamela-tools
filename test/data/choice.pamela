@@ -1,5 +1,5 @@
 ; Pamela code that represents a simple choice TPN, with 2 activities, 1 activity is bounded and other unbounded.
-
+; pamela -i choice.pamela -t "(choice-tpn.simple-choice-tpn)" htn -o choice
 (defpclass plant []
            :meta {:doc "The Plant API"}
 
@@ -8,17 +8,16 @@
                                   :bounds [1 5]} [])
                      (defpmethod unbounded
                                  {:doc "Unbounded"}
-                                 [])
-                     ])
+                                 [])])
+
 
 (defpclass choice-tpn []
            :meta {:doc "Simple Choice with 2 Activities"}
-           :fields {:plant (plant)}
+           :fields {plant (plant)}
            :methods [(defpmethod simple-choice-tpn
                                  {:doc "Simple Choice TPN"}
                                  []
                                  (choose
                                    (choice (plant.bounded))
-                                   (choice (plant.unbounded)))
-                                 )]
-           )
+                                   (choice (plant.unbounded))))])
+
