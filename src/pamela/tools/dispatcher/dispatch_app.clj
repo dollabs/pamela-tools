@@ -28,9 +28,8 @@
             [clojure.tools.cli :as cli]
             [clojure.java.io :as io]
             [clojure.pprint :refer :all]
-            [clojure.set :as set]
-            [clojure.walk]
-            )
+            [clojure.walk])
+
   (:gen-class))
 
 ; forward declarations
@@ -64,9 +63,6 @@
 (defonce tpn-failed-cb nil)                                 ; when tpn is failed, this callback will be called
 (defonce tpn-finished-cb nil)                               ; when tpn is finishes, this callback will be called
 
-; Event handler agent. To simply serialize all events
-(defonce event-handler (agent {}))
-
 (def default-exchange "tpn-updates")
 (def routing-key-finished-message "tpn.activity.finished")
 
@@ -78,17 +74,6 @@
 
 (defn reset-rt-exception-state []
   (reset! rt-exceptions []))
-
-(defn show-agent-error []
-  (println (agent-error event-handler)))
-
-(defn reset-agent-state
-  "To be used when running from repl or unit tests to reset agent-state"
-  []
-  ;(println @event-handler)
-  (when (agent-error event-handler)
-    (show-agent-error)
-    (restart-agent event-handler {} :clear-actions true)))
 
 (defn exit []
   ;(println "repl state" (:repl @state))
@@ -164,8 +149,8 @@
                                     :tpn-object-state :normal}})
                              ids))
         exch-name (get-exchange-name)
-        channel (get-channel exch-name)
-        ]
+        channel (get-channel exch-name)]
+
     #_(pprint st)
     ; TODO refactor reset to a method
     (rmq/publish-object (merge st {:network-id netid}) "network.reset"
@@ -313,17 +298,12 @@
                             disp-id time-millis)))))))
 
 (defn publish-metrics-observations [metrics]
-  (let [metrics (clojure.walk/prewalk-replace {java.lang.Double/POSITIVE_INFINITY "infinity"
-                                               java.lang.Double/NEGATIVE_INFINITY "-infinity"
-                                               } metrics)
-        plnt (get-plant-interface)
-        exch (get-exchange-name)
-        chan (get-channel exch)]
+  (let [metrics (clojure.walk/prewalk-replace {Double/POSITIVE_INFINITY "infinity"
+                                               Double/NEGATIVE_INFINITY "-infinity"} metrics)
+        exch    (get-exchange-name)
+        chan    (get-channel exch)]
     ;(println "publish-metrics-observations\n" metrics)
-    ;(println "exch" exch)
-    ;(println "chan" chan)
-    (rmq/publish-object metrics "planner.metrics" chan exch)
-    #_(plant_i/observations plnt nil "planner-metrics" [(plant/make-observation :planner-metrics metrics)] nil)))
+    (rmq/publish-object metrics "planner.metrics" chan exch)))
 
 (defn show-tpn-execution-time []
   (let [tpn-map (:tpn-map @state)
@@ -358,8 +338,7 @@
       (when stop-when-rt-exceptions
         (println "stop-when-rt-exceptions is" stop-when-rt-exceptions)
         (println "further activity dispatch should stop")
-        true
-        ))))
+        true))))
 
 (defn wait-until-tpn-finished
   "Blocking function to wait for tpn to finish"
@@ -404,8 +383,8 @@
   (show-activity-execution-times)
   (show-tpn-execution-time)
   (let [old-state (get-tpn-dispatch-state)
-        old-info (last old-state)
-        new-info (conj old-info {:end-time (pt-timer/getTimeInSeconds)})
+        old-info  (last old-state)
+        new-info  (conj old-info {:end-time (pt-timer/getTimeInSeconds)})
         old-state (into [] (butlast old-state))
         new-state (conj old-state new-info)]
     (when (:dispatch-id old-info)
@@ -413,11 +392,11 @@
       (plant_i/finished (:plant-interface @state) (name (:plant-id old-state)) (:dispatch-id old-state) nil nil))
     (update-tpn-dispatch-state! new-state))
   (when with-dispatcher-manager
-    (publish-message {:id netid
-                          :tpn (get-tpn)
-                          :state :finished
-                          :reason {:finish-state :success}}
-                         dispatcher-manager-rkey))
+    (publish-message {:id     netid
+                      :tpn    (get-tpn)
+                      :state  :finished
+                      :reason {:finish-state :success}}
+                     dispatcher-manager-rkey))
   (when tpn-finished-cb
     (tpn-finished-cb (get-tpn)))
   ;(println "Sleep before exit")
@@ -458,10 +437,10 @@
         (let [before (pt-timer/get-unix-time)]
           (pt-timer/schedule-task (fn []
                                     #_(let [now (pt-timer/make-instant (pt-timer/get-unix-time))]
-                                      (println act-id "timed out"
-                                               "\nstart:" (str (pt-timer/make-instant before))
-                                               "\nnow: " (str now)
-                                               "\nDuration" (str (java.time.Duration/between (pt-timer/make-instant before) now ))))
+                                        (println act-id "timed out"
+                                                 "\nstart:" (str (pt-timer/make-instant before))
+                                                 "\nnow: " (str now)
+                                                 "\nDuration" (str (java.time.Duration/between (pt-timer/make-instant before) now))))
                                     (handle-activity-timeout act-id))
                                   (* 1000 (second bounds))))))))
 
@@ -497,15 +476,14 @@
     {
      ;:all-activities act-ids
      ;:finished-acts finished-ids
+     ;:act-state act-state
      :current-actions current-actions
      :next-actions    (select-keys tpn next-activities-id)
-     :other-actions   (select-keys tpn other-act-ids)
-     ;:act-state act-state
-     }))
+     :other-actions   (select-keys tpn other-act-ids)}))
 
 (defn publish-mission-updates-message []
   (publish-message (make-current-next-other-activities)
-                       "dispatch-mission-updates"))
+                   "dispatch-mission-updates"))
 
 (defn publish-dispatched
   "Called whenever an change in activity state causes change in TPN state!"
@@ -570,10 +548,6 @@
 (defn act-finished-handler [act-id act-state tpn-map m]
   (let [before (pt-timer/getTimeInSeconds)]
     ;(println "begin -- act-finished-handler" act-id act-state (.getName (Thread/currentThread)))
-    ;(println "tpn-map")
-    ;(pprint tpn-map)
-    ;(println "m")
-    ;(pprint m)
     (cond (or (= :finished act-state) (= :success act-state) (= :cancelled act-state))
           (if monitor-mode
             (monitor-mode-publish-dispatched (dispatch/activity-finished (act-id tpn-map) tpn-map m) tpn-map)
@@ -581,10 +555,10 @@
           :else
           (util/to-std-err (println "act-finished-handler unknown state" act-state)))
     ;(println "act-finished-handler" act-id act-state "process time" (float (- (tutil/getTimeInSeconds) before)))
-    (println "act-finished-handler end -- activity execution time" act-id (:display-name (util/get-object act-id tpn-map)) (dispatch/get-activity-execution-time act-id))
-    ))
+    (println "act-finished-handler end -- activity execution time" act-id (:display-name (util/get-object act-id tpn-map))
+             (dispatch/get-activity-execution-time act-id))))
 
-(defn act-do-not-wait-handler [act-id act-state tpn-map m]
+(defn act-do-not-wait-handler [act-id _ tpn-map m]
   ;dispatch/do-not-wait
   (let [x (dispatch/activity-do-not-wait (act-id tpn-map) tpn-map m)]
     ;(pprint x)
@@ -598,14 +572,14 @@
     (cancel-plant-activities acts (* time 1000))))
 
 (defn act-failed-handler [act-id reason]
-  (let [tpn (get-tpn)
-        act-obj (util/get-object act-id tpn)
+  (let [tpn      (get-tpn)
+        act-obj  (util/get-object act-id tpn)
         ; only a started activity can fail.
         ; activity in any other state such as cancel, cancelled, or finished cannot fail.
         started? (dispatch/activity-started? act-obj)]
 
     (when started?
-      (let [fail-time (pt-timer/getTimeInSeconds)
+      (let [fail-time  (pt-timer/getTimeInSeconds)
             ; Calling get-node-started-time before activity-failed because activity-failed
             ; updates node time for all the nodes that could possibly fail along the path
             node-state (dispatch/get-node-started-times tpn)
@@ -614,7 +588,7 @@
             ;_ (do (println "node-state")
             ;      (pprint node-state))
             failed-ids (dispatch/activity-failed act-id tpn fail-time reason)
-            act-label (:display-name (util/get-object act-id (:tpn-map @state)))]
+            act-label  (:display-name (util/get-object act-id (:tpn-map @state)))]
         (when failed-ids
           (println "Not dispatching rest of activities as activity failed" act-id ":" act-label)
           ;(println "failed ids" (count failed-ids) failed-ids)
@@ -625,7 +599,7 @@
             (let [fail-reasons (dispatch/get-fail-reason (get-tpn))]
               ;(dispatch/print-state-internal (get-tpn))
               #_(doseq [[nid time-val] node-state]
-                (println "act-fail-handler" nid ":" (str (pt-timer/make-instant time-val)) ))
+                  (println "act-fail-handler" nid ":" (str (pt-timer/make-instant time-val))))
               #_(pprint node-state)
               (if tpn-failed-cb (tpn-failed-cb (get-tpn) node-state fail-reasons)
                                 (handle-tpn-failed (get-tpn) node-state fail-reasons)))
@@ -654,10 +628,9 @@
   (util/to-std-err (println "handle-activity-message")
                    (pprint msg)))
 
-(defmethod handle-activity-message :started [msg]
-  ;no-op because we publish this in response to started message from plant so that
-  ; planviz can update it's state.
-  )
+;no-op because we publish this in response to started message from plant so that
+; planviz can update it's state.
+(defmethod handle-activity-message :started [_])
 
 (defmethod handle-activity-message :finished [msg]
   ;(pprint msg)
@@ -693,8 +666,8 @@
                                (:tpn-object-state v)
                                (:tpn-map @state)
                                (select-keys @state [:choice-fn]))
-      (println "handle-activity-message :do-not-wait does not apply for:" (:uid v) (tpn_type/edgetypes (:tpn-type (util/get-object (:uid v) (:tpn-map @state)))))
-      )))
+      (println "handle-activity-message :do-not-wait does not apply for:" (:uid v) (tpn_type/edgetypes (:tpn-type (util/get-object (:uid v) (:tpn-map @state))))))))
+
 
 (defmethod handle-activity-message :cancel-activity [msg]
   "Published from planviz when the user wishes to cancel the activity.
@@ -705,22 +678,19 @@
 
 (defn process-activity-msg
   "To process the message received from RMQ"
-  ([msg]
-   (let [last-msg (:last-rmq-msg @state)]
-     (when last-msg
-       (binding [*out* *err*]
-         (println "last rmq message. Sync incoming rmq messages")
-         (pprint (:last-rmq-msg @state))
-         )))
-   (update-state! {:last-rmq-msg msg})
-   ;(println " process-activity-msg Got message")
-   ;(pprint msg)
-   (handle-activity-message msg)
-   (update-state! {:last-rmq-msg nil}))
+  [msg]
+  (let [last-msg (:last-rmq-msg @state)]
+    (when last-msg
+      (binding [*out* *err*]
+        (println "last rmq message. Sync incoming rmq messages")
+        (pprint (:last-rmq-msg @state)))))
 
-  #_([old-state msg]                                        ;"When working on event-handler thread"
-     ;(println "event-handler process-activity-msg")
-     (process-activity-msg msg)))
+  (update-state! {:last-rmq-msg msg})
+  ;(println " process-activity-msg Got message")
+  ;(pprint msg)
+  (handle-activity-message msg)
+  (update-state! {:last-rmq-msg nil}))
+
 
 (defn process-activity-started
   "Called when in monitor mode"
@@ -751,8 +721,8 @@
 
 (defn activity-started-handler [m]
   (when monitor-mode
-    (async/>!! activity-started-q m)
-    ))
+    (async/>!! activity-started-q m)))
+
 
 (defn setup-activity-started-listener []
   "Assume the network is stored in app atom (@state)"
@@ -768,15 +738,14 @@
                                                                       (let [data (String. payload "UTF-8")
                                                                             m (tpn-json/map-from-json-str data)]
                                                                         (println "Got activity started message")
-                                                                        (activity-started-handler m)
-                                                                        ))
+                                                                        (activity-started-handler m)))
+
                                                                     (get-channel (get-exchange-name))
-                                                                    (:exchange @state)
-                                                                    )}))
+                                                                    (:exchange @state))}))
+
 ; Callback To receive messages from RMQ
 (defn act-finished-handler-broker-cb [payload]
   ;(println "act-finished-handler-broker-cb recvd from rmq: " payload)
-  #_(send event-handler process-activity-msg (rmq/payload-to-clj payload))
   (process-activity-msg (rmq/payload-to-clj payload)))
 
 (defn setup-broker-cb []
@@ -812,11 +781,7 @@
 
         (update-tpn-dispatch-state! new-state)
         (dispatch-tpn (:tpn-map @state))
-        (plant_i/started (:plant-interface @state) (name (:plant-id cmd)) (:id cmd) nil)
-        #_(send event-handler
-                (fn [old-state]
-                  (dispatch-tpn (:tpn-map @state))
-                  (plant_i/started (:plant-interface @state) (name (:plant-id cmd)) (:id cmd) nil)))))))
+        (plant_i/started (:plant-interface @state) (name (:plant-id cmd)) (:id cmd) nil)))))
 
 (defn setup-dispatcher-command-listener []
   (rmq/make-subscription "dispatcher"
@@ -837,25 +802,19 @@
 
 (defn setup-and-dispatch-tpn [tpn-net]
   #_(println "Dispatching TPN from file" file)
-  ; Sequnece of steps when dispatching TPN from file
+  ; Sequence of steps when dispatching TPN from file
+  (println "Use Ctrl-C to exit")
+  (init-new-tpn tpn-net)
 
-  #_(update-state! {:expr-details (expr/make-expressions-from-map tpn-net)})
-  #_(dispatch/set-tpn-info tpn-net (:expr-details @state))
+  (cond (true? monitor-mode)
+        (println "In Monitor mode. Not dispatching")
 
-  (let [exch-name (:exchange @state)
-        channel (get-in @state [exch-name :channel])]
-    (println "Use Ctrl-C to exit")
-    (init-new-tpn tpn-net)
+        (true? wait-for-tpn-dispatch)
+        (println "Waiting for tpn dispatch command. Not dispatching")
 
-    (cond (true? monitor-mode)
-          (println "In Monitor mode. Not dispatching")
-
-          (true? wait-for-tpn-dispatch)
-          (println "Waiting for tpn dispatch command. Not dispatching")
-
-          :else
-          (do (reset-network tpn-net)
-              (dispatch-tpn tpn-net)))))
+        :else
+        (do (reset-network tpn-net)
+            (dispatch-tpn tpn-net))))
 
 (defn setup-and-dispatch-tpn-with-bindings [tpn bindings abs-dispatch-time]
   (println "setup-and-dispatch-tpn-with-bindings" abs-dispatch-time)
@@ -873,8 +832,8 @@
         ""
         "Options:"
         options-summary
-        ""
-        ]
+        ""]
+
        (string/join \newline)))
 
 (defn get-tpn-file [args]                                   ;Note args are (:arguments parsed)
@@ -884,8 +843,8 @@
     (do
       (if (and (> (count args) 0) (.exists (io/as-file (first args))))
         [(first args) nil]
-        [nil (str "File not found:" " " (first args))]
-        ))))
+        [nil (str "File not found:" " " (first args))]))))
+
 
 (defn publish-activity-state [id state net-id routing-key]
   "To use when plant observations come through"
@@ -939,7 +898,7 @@
   (println "activity finished with fail state" ((:id msg) @state))
   (publish-activity-state ((:id msg) @state) :failed (get-network-id) routing-key-finished-message))
 
-(defmethod handle-plant-message :status-update [msg])       ;NOOP
+(defmethod handle-plant-message :status-update [_])       ;NOOP
 
 (defn handle-plant-reply-msg [msg]
   ;(println "handle-plant-reply-msg")
@@ -960,9 +919,9 @@
           replacement-arg (second invocation-detail)
           new-field-value (get-in msg [:reason :value])
           old-args (get-in @state [:tpn-map act-id :args])
-          new-args (replace {replacement-arg new-field-value} old-args)
+          new-args (replace {replacement-arg new-field-value} old-args)]
           ; Note. Not updating argsmap as it is deprecated
-          ]
+
       ;(println "Replacing old with new args" old-args new-args)
       ;(println "before activity" )
       ;(pprint (get-in @state [:tpn-map act-id]))
@@ -1056,7 +1015,7 @@
         (println "Error creating rmq channel")
         (exit)))))
 
-(defn update-clock [_ metadata data]
+(defn update-clock [_ _ data]
   (let [msg (util/map-from-json-str (String. data "UTF-8"))
         ts (:timestamp msg)]
     (if ts (pt-timer/update-clock ts))))
@@ -1065,7 +1024,7 @@
   (let [parsed (cli/parse-opts args cli-options)
         help (get-in parsed [:options :help])
         errors (:errors parsed)
-        [tpn-file message] (get-tpn-file (:arguments parsed)) ;(get-in parsed [:options :tpn])
+        [tpn-file _] (get-tpn-file (:arguments parsed))
         tpn-network (when tpn-file (tpn_import/from-file tpn-file))
         exch-name (get-in parsed [:options :exchange])
         host (get-in parsed [:options :host])
@@ -1129,9 +1088,7 @@
         (update-state! {:tpn-file tpn-file})
         (setup-and-dispatch-tpn tpn-network))
       (do
-        (println "No TPN File given! Will wait for external TPN.")
-
-        ))))
+        (println "No TPN File given! Will wait for external TPN.")))))
 
 ; Dispatch TPN, Wait for TPN to finish and Exit.
 (defn -main
