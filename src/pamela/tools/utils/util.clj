@@ -8,8 +8,7 @@
 
 (ns pamela.tools.utils.util
   "Set of util functions used everywhere."
-  (:import (java.net Socket)
-           (java.io OutputStreamWriter File)
+  (:import (java.io File)
            (clojure.lang PersistentQueue)
            (java.util.regex Pattern))
   (:require [pamela.tools.utils.tpn-types :as tpn_types]
@@ -53,7 +52,7 @@
   Shows new keys and value changes for shared keys"
   (let [[in-old in-new _] (diff old-m new-m)
         updates (set/intersection (set (keys in-old)) (set (keys in-new)))
-        new (set/difference (set (keys in-new)) (set (keys in-old)))]
+        new     (set/difference (set (keys in-new)) (set (keys in-old)))]
 
     (when-not (empty? new)
       (println "New keys for uid" (:uid old-m))
@@ -154,8 +153,7 @@
           end (if-not end
                 (let [act-id (first (:activities current-node))
                       ;_ (println "activities" (:activities current-node))
-                      act (get-object act-id tpn-net)
-                      ]
+                      act    (get-object act-id tpn-net)]
                   (get-object (:end-node act) tpn-net))
                 end)]
       (get-network-end-node tpn-net end))))
@@ -167,10 +165,10 @@
   (print "]"))
 
 (defn get-constraints [act-id m]
-  (let [act (get-object act-id m)
+  (let [act         (get-object act-id m)
         constraints (map (fn [cid]
-                           (get-object cid m)
-                           ) (:constraints act))]
+                           (get-object cid m))
+                         (:constraints act))]
     constraints))
 
 (defn get-activity-temporal-constraint-value
@@ -179,8 +177,7 @@
   (let [constrains (get-constraints act-id m)]
     (if (first constrains)
       (:value (first constrains))
-      [0 java.lang.Double/POSITIVE_INFINITY]
-      )))
+      [0 Double/POSITIVE_INFINITY])))
 
 (defn get-all-activities
   "Starting at given node, return all activities until end-node of node-obj is found"
@@ -191,16 +188,16 @@
       (println "Error: get-all-activities Search for end-node yielded nil")
       (pprint node-obj)))
 
-  (loop [end (get-end-node node-obj m)
+  (loop [end            (get-end-node node-obj m)
          nodes-to-visit (conj (PersistentQueue/EMPTY) node-obj)
-         activities #{}]
+         activities     #{}]
 
     (if (empty? nodes-to-visit)
       activities
-      (let [n (first nodes-to-visit)
-            acts (if (not= (:uid n) (:uid end))
-                   (:activities n)
-                   #{})
+      (let [n             (first nodes-to-visit)
+            acts          (if (not= (:uid n) (:uid end))
+                            (:activities n)
+                            #{})
             act-end-nodes (reduce (fn [result act-id]
                                     (conj result (get-end-node (get-object act-id m) m)))
                                   [] acts)]
@@ -213,8 +210,7 @@
         ;(pprint act-end-nodes)
         ;(println "END node" end)
         ;(println "-----------")
-        (recur end (into (pop nodes-to-visit) act-end-nodes) (into activities acts))
-        ))))
+        (recur end (into (pop nodes-to-visit) act-end-nodes) (into activities acts))))))
 
 (defn find-any-path
   "Starting with start-uid, walk the graph until end-uid is found.
@@ -222,7 +218,7 @@
   The vector will have the object-uids in the order they are visited.
   If the end-uid is not found, last element will be nil."
   [start-uid end-uid m]
-  (loop [result []
+  (loop [result         []
          current-object (get-object start-uid m)]
     (if (or (= end-uid (:uid current-object))
             (nil? current-object))
@@ -244,12 +240,12 @@
 ;;; Return time-stamp as ? and json message as clj-map
 (defn parse-rmq-logger-json-line [line]
   (let [time-begin (inc (str/index-of line ","))
-        time (.substring line time-begin)
-        time-end (+ time-begin (str/index-of time ","))
+        time       (.substring line time-begin)
+        time-end   (+ time-begin (str/index-of time ","))
 
-        ts (str/trim (.substring line time-begin time-end))
-        data (str/trim (.substring line (inc time-end)))
-        ]
+        ts         (str/trim (.substring line time-begin time-end))
+        data       (str/trim (.substring line (inc time-end)))]
+
 
     {:recv-ts (read-string ts)
      :data    (map-from-json-str data)}))
@@ -277,14 +273,14 @@
 (defn getCurrentThreadName []
   (.getName (Thread/currentThread)))
 
-#(def my-libs-info #{"tpn." "repr."})
+#_(def my-libs-info #{"tpn." "repr."})
 (defn my-libs []
   (filter (fn [lib]
             ;(println "lib" lib)
             ;(println "type" (type lib))
             (or (str/starts-with? (str lib) "tpn.")
-                (str/starts-with? (str lib) "repr."))
-            ) (loaded-libs)))
+                (str/starts-with? (str lib) "repr.")))
+          (loaded-libs)))
 
 (defn remove-namespaces [spaces]
   (doseq [sp spaces]
@@ -299,21 +295,21 @@
 
 (defn get-everything-after [nth separator line]
   (loop [sep-count 0
-         after line]
+         after     line]
     (if (= nth sep-count)
       after
-      (let [index (str/index-of after separator)
+      (let [index     (str/index-of after separator)
             new-after (when index (.substring after (inc index)))]
         (recur (inc sep-count) new-after)))))
 
 (defn get-nodes-or-activities [tpn]
-  (into {} (filter (fn [[uid obj]]
+  (into {} (filter (fn [[_ obj]]
                      (or (contains? tpn_types/nodetypes (:tpn-type obj))
-                         (contains? tpn_types/edgetypes (:tpn-type obj)))
-                     ) tpn)))
+                         (contains? tpn_types/edgetypes (:tpn-type obj))))
+                   tpn)))
 
 #_(defn get-temporal-constraints [uid m]
-    (let [obj (get-object uid m)
+    (let [obj         (get-object uid m)
           constraints (:constraints obj)
           constraints (filter (fn [cid]
                                 (= :temporal-constraint (:tpn-type (get-object cid m)))) constraints)]
@@ -337,12 +333,24 @@
   java.lang.double version"
   [bindings]
   (w/postwalk (fn [x]
-                (cond (= x (str java.lang.Double/POSITIVE_INFINITY))
-                      java.lang.Double/POSITIVE_INFINITY
-                      (= x (str java.lang.Double/NEGATIVE_INFINITY))
-                      java.lang.Double/NEGATIVE_INFINITY
+                (cond (= x (str Double/POSITIVE_INFINITY))
+                      Double/POSITIVE_INFINITY
+                      (= x (str Double/NEGATIVE_INFINITY))
+                      Double/NEGATIVE_INFINITY
                       (and (vector? x) (= :to-node (first x)))
                       [:to-node (keyword (second x))]
+                      :else x))
+              bindings))
+
+(defn convert-bindings-to-json
+  "If any of the element is java.lang.Double/POSITIVE_INFINITY or java.lang.Double/NEGATIVE_INFINITY then convert it to corresponding
+  string version"
+  [bindings]
+  (w/postwalk (fn [x]
+                (cond (= x Double/POSITIVE_INFINITY)
+                      (str Double/POSITIVE_INFINITY)
+                      (= x Double/NEGATIVE_INFINITY)
+                      (str Double/NEGATIVE_INFINITY)
                       :else x))
               bindings))
 
@@ -356,14 +364,14 @@
 
 (defn collect-objects-in-bfs-xx [tpn]
   (let [begin-node (:uid (get-begin-node tpn))]
-    (loop [objs []
+    (loop [objs    []
            handled #{}
-           remain [begin-node]]
+           remain  [begin-node]]
       (if (nil? (first remain))
         objs
-        (let [obj (get-object (first remain) tpn)
-              is_node ((:tpn-type obj) tpn_types/nodetypes)
-              is_edge ((:tpn-type obj) tpn_types/edgetypes)
+        (let [obj       (get-object (first remain) tpn)
+              is_node   ((:tpn-type obj) tpn_types/nodetypes)
+              is_edge   ((:tpn-type obj) tpn_types/edgetypes)
               next-objs (cond is_node (:activities obj)
                               is_edge [(:end-node obj)]
                               :else [])]
@@ -387,9 +395,9 @@
       ;(println uid)
       ;(println "handled" @handled)
       (if-not (contains? @handled uid)
-        (let [obj (get-object uid tpn)
-              is_node ((:tpn-type obj) tpn_types/nodetypes)
-              is_edge ((:tpn-type obj) tpn_types/edgetypes)
+        (let [obj       (get-object uid tpn)
+              is_node   ((:tpn-type obj) tpn_types/nodetypes)
+              is_edge   ((:tpn-type obj) tpn_types/edgetypes)
               next-objs (cond is_node (:activities obj)
                               is_edge [(:end-node obj)]
                               :else [])]
@@ -408,7 +416,7 @@
   walker continue walking the graph
   "
   (loop [collected []
-         remain [begin]]
+         remain    [begin]]
     ;(println "collected" collected)
     ;(println "remain" remain)
     (if (nil? (first remain))
@@ -417,8 +425,8 @@
         ;(println "collected-w" collected-w)
         ;(println "remain-w" remain-w)
         ;(println "-----")
-        (recur (into collected collected-w) (into (into [] (rest remain)) remain-w))
-        ))))
+        (recur (into collected collected-w) (into (into [] (rest remain)) remain-w))))))
+
 
 (defn walk-tpn [tpn fn]
   (walker (:uid (get-begin-node tpn)) fn))
@@ -474,14 +482,14 @@
         (do
           ;(println "got" (:uid obj) (:tpn-type obj))
           (if (not (empty? (:activities obj)))
-            (let [act-id (first (:activities obj))
+            (let [act-id  (first (:activities obj))
                   act-obj (get-object act-id tpn)]
 
               (if (= :activity (:tpn-type act-obj))         ;state node has activity, so next action is the activity
                 (conj next-actions {(:uid obj) [act-obj]})
                 ; state node has delay or null activity, so next action is whatever is the next action for null/delay activity
-                (copy-next-action (make-next-action act-obj next-actions tpn) act-id (:uid obj))
-                ))
+                (copy-next-action (make-next-action act-obj next-actions tpn) act-id (:uid obj))))
+
             ; state node is end node of the sequence. So no next actions
             (conj next-actions {(:uid obj) []})))
 
@@ -533,7 +541,7 @@
   "fn to return threads sorted by their run time state"
   []
   #_(doseq [th (keys (Thread/getAllStackTraces))]
-    (println (.getName th) (.name (.getState th))))
+      (println (.getName th) (.name (.getState th))))
   (group-by (fn [x]
               (second x))
             (sort-by first (map (fn [th]
