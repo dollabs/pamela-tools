@@ -155,7 +155,7 @@
 
 (def par-pamela (timport/from-file "./test/data/parallel.json"))
 
-(def choice-pamela (timport/from-file "./test/data/choice.json"))
+(def choice-pamela (timport/from-file "./test/data/choice.tpn.json"))
 
 (def par-choice-pamela (timport/from-file "./test/data/parallel-and-choice.tpn.json"))
 

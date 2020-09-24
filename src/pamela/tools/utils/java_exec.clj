@@ -109,6 +109,9 @@
     (println (.getDescription jprocess) (if alive "is alive" "") (if-not alive
                                                                    (str "is not alive. Exit value: " (.exitValue process)) ""))))
 
+(defn is-alive [started-process]
+  (-> started-process (make-java-process) (.getProcess) (.isAlive)))
+
 (defn cancel-process [started-process]
   "Cancel the process gracefully or forcefully if the graceful termination did not finish for 1 minute"
   (ProcessUtil/destroyGracefullyOrForcefullyAndWait (make-java-process started-process) 1 TimeUnit/MINUTES 1 TimeUnit/MINUTES))

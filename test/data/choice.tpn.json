@@ -1,0 +1,144 @@
+{
+  "act-11": {
+    "args": [],
+    "argsmap": {},
+    "command": "unbounded",
+    "constraints": [],
+    "controllable": false,
+    "cost": 0,
+    "display-args": [],
+    "display-name": "Unbounded",
+    "end-node": "node-10",
+    "htn-node": "hem-13",
+    "name": "Unbounded",
+    "reward": 0,
+    "tpn-type": "activity",
+    "uid": "act-11"
+  },
+  "act-6": {
+    "args": [],
+    "argsmap": {},
+    "command": "bounded",
+    "constraints": [
+      "tc-5"
+    ],
+    "controllable": false,
+    "cost": 0,
+    "display-args": [],
+    "display-name": "Bounded",
+    "end-node": "node-4",
+    "htn-node": "hem-11",
+    "name": "Bounded",
+    "reward": 0,
+    "tpn-type": "activity",
+    "uid": "act-6"
+  },
+  "na-13": {
+    "constraints": [],
+    "end-node": "node-12",
+    "tpn-type": "null-activity",
+    "uid": "na-13"
+  },
+  "na-14": {
+    "constraints": [],
+    "end-node": "node-1",
+    "tpn-type": "null-activity",
+    "uid": "na-14"
+  },
+  "na-8": {
+    "constraints": [],
+    "end-node": "node-7",
+    "tpn-type": "null-activity",
+    "uid": "na-8"
+  },
+  "na-9": {
+    "constraints": [],
+    "end-node": "node-1",
+    "tpn-type": "null-activity",
+    "uid": "na-9"
+  },
+  "net-3": {
+    "begin-node": "node-2",
+    "end-node": "node-1",
+    "tpn-type": "network",
+    "uid": "net-3"
+  },
+  "network-id": "net-3",
+  "node-1": {
+    "activities": [],
+    "constraints": [],
+    "incidence-set": [
+      "na-9",
+      "na-14"
+    ],
+    "tpn-type": "c-end",
+    "uid": "node-1"
+  },
+  "node-10": {
+    "activities": [
+      "na-14"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-11"
+    ],
+    "tpn-type": "state",
+    "uid": "node-10"
+  },
+  "node-12": {
+    "activities": [
+      "act-11"
+    ],
+    "constraints": [],
+    "htn-node": "hem-13",
+    "incidence-set": [
+      "na-13"
+    ],
+    "tpn-type": "state",
+    "uid": "node-12"
+  },
+  "node-2": {
+    "activities": [
+      "na-13",
+      "na-8"
+    ],
+    "constraints": [],
+    "end-node": "node-1",
+    "htn-node": "hem-13",
+    "incidence-set": [],
+    "tpn-type": "c-begin",
+    "uid": "node-2"
+  },
+  "node-4": {
+    "activities": [
+      "na-9"
+    ],
+    "constraints": [],
+    "incidence-set": [
+      "act-6"
+    ],
+    "tpn-type": "state",
+    "uid": "node-4"
+  },
+  "node-7": {
+    "activities": [
+      "act-6"
+    ],
+    "constraints": [],
+    "htn-node": "hem-11",
+    "incidence-set": [
+      "na-8"
+    ],
+    "tpn-type": "state",
+    "uid": "node-7"
+  },
+  "tc-5": {
+    "end-node": "node-4",
+    "tpn-type": "temporal-constraint",
+    "uid": "tc-5",
+    "value": [
+      1,
+      5
+    ]
+  }
+}
