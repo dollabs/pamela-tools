@@ -92,7 +92,7 @@
   (show-command-state (:id msg)))
 
 (defn dispatcher-finished-handler [id exit-code]
-  (let [last-state (last (get-in @state [id :state]))
+  (let [last-state   (last (get-in @state [id :state]))
         finish-state (cond (= :cancel last-state)
                            :cancelled
 
@@ -101,7 +101,7 @@
 
                            :else
                            :failed)
-        plantid (get-in @state [id :plant-id])]
+        plantid      (get-in @state [id :plant-id])]
     (println "Dispatcher " id "finished with exit-code" exit-code "state" finish-state "last-state" last-state)
     (update-command-state! id finish-state)
     (show-command-state id)
@@ -127,7 +127,7 @@
 
 (defn update-with-unique-network-id [msg-id tpn]
   (let [netid-old (:network-id tpn)
-        netid (keyword (str (name netid-old) "-" msg-id))]
+        netid     (keyword (str (name netid-old) "-" msg-id))]
     (merge tpn {:network-id netid
                 netid       (netid-old tpn)})))
 
@@ -185,7 +185,7 @@
 
 (defn handle-finished-msg [msg]
   (let [fin-state (get-in msg [:reason :finish-state])
-        reason (get-in msg [:reason])]
+        reason    (get-in msg [:reason])]
     (cond (= :success fin-state)
           (when tpn-finished-cb
             (tpn-finished-cb (:tpn msg)))
@@ -221,23 +221,27 @@
 (defn cancel-subscription []
   (def rmq (plant/cancel-subscription rmq)))
 
+(defn send-start-msg [plant-msg-id tpn show-in-planviz]
+  (println "Publishing start TPN message to Dispatcher Manager\nmsg-id tpn-id show-in-planviz\n" plant-msg-id (:network-id tpn) show-in-planviz
+           (plant/start rmq
+                        default-plant-id
+                        plant-msg-id
+                        "dispatch_tpn"
+                        [tpn show-in-planviz]
+                        {:tpn             tpn
+                         :show-in-planviz show-in-planviz}
+                        nil nil)))
+
 (defn send-cancel-message [msg-id]
   (println "test-publish-tpn sending cancel")
   (plant/cancel rmq default-plant-id msg-id nil))
 
 (defn test-publish-tpn [tpn-data & [cancel]]
-  (let [tpn (first tpn-data)
-        msg-id (second tpn-data)
+  (let [tpn             (first tpn-data)
+        msg-id          (second tpn-data)
         show-in-planviz true]
     (println "test-publish-tpn" msg-id)
-    (plant/start rmq
-                 default-plant-id
-                 msg-id
-                 "dispatch_tpn"
-                 [tpn show-in-planviz]
-                 {:tpn             tpn
-                  :show-in-planviz show-in-planviz}
-                 nil nil)
+    (send-start-msg msg-id tpn show-in-planviz)
     (when cancel
       (println "test-publish-tpn Sleeping for 10 secs")
       (Thread/sleep 10000)
@@ -291,14 +295,14 @@
   "Dispatches TPN via RMQ"
   [& args]
 
-  (let [parsed (cli/parse-opts args cli-options)
+  (let [parsed  (cli/parse-opts args cli-options)
         options (:options parsed)
-        {host             :host
-         port             :port
-         exchange         :exchange
-         subscription-key :subscription-key
+        {host                        :host
+         port                        :port
+         exchange                    :exchange
+         subscription-key            :subscription-key
          dispatch-all-choices-parsed :dispatch-all-choices
-         help             :help} options]
+         help                        :help} options]
 
     (when help
       (println (usage (:summary parsed)))
