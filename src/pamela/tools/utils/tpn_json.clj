@@ -9,7 +9,8 @@
 (ns pamela.tools.utils.tpn-json
   "Functions to read TPN JSON data into clojure data structures and
   write json"
-  (:require [clojure.data.json :as cl-json]))
+  (:require [clojure.data.json :as cl-json]
+            [pamela.tools.utils.util :as pt-utils]))
 
 (def debug nil)
 
@@ -54,7 +55,7 @@
                       :key-fn #(keyword %)
                       :value-fn val-converter)
     (catch Exception e
-      (println "Error parsing map-from-json-str:\n" content + "\n"))) )
+      (println "Error parsing map-from-json-str:\n" content + "\n"))))
 
 (defn from-file [a-file]
   "Read json from a file. a-file could be a string or java.io.File object.
@@ -69,5 +70,18 @@
   (with-open [x (clojure.java.io/writer fname)]
     (binding [*out* x]
       (cl-json/pprint m))))
+
+(defn read-bindings-from-json [file]
+  (pt-utils/convert-json-bindings-to-clj
+    (from-file file)))
+
+(defn write-bindings-to-json [bindings file]
+  (to-file (pt-utils/convert-bindings-to-json bindings) file))
+
+(defn read-tpn-with-bindings [tpn-file binding-file]
+  {:tpn (if tpn-file
+          (from-file tpn-file))
+   :bindings (if binding-file
+               (read-bindings-from-json binding-file))})
 
 
