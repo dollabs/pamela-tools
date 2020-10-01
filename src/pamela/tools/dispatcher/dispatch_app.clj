@@ -36,6 +36,7 @@
 (declare act-cancel-handler)
 (declare act-failed-handler)
 (declare handle-tpn-failed)
+(declare publish-mission-updates-message)
 
 (def debug false)
 (def collect-bindings? true)
@@ -62,6 +63,7 @@
 (defonce observations-q (async/chan))
 (defonce tpn-failed-cb nil)                                 ; when tpn is failed, this callback will be called
 (defonce tpn-finished-cb nil)                               ; when tpn is finishes, this callback will be called
+(defonce bindings nil)
 
 (def default-exchange "tpn-updates")
 (def routing-key-finished-message "tpn.activity.finished")
@@ -127,6 +129,7 @@
                   [nil "--dispatch-all-choices" "Will dispatch all choices" :default false]
                   [nil "--simulate-clock" "Will listen for clock messages on rkey `clock` and use the clock for timeouts only!" :default false]
                   [nil "--with-dispatcher-manager" "Will publish TPN failed/finished state with reason" :default false]
+                  [nil "--bindings-file file-name" "Will use the bindings specified in json file" :default nil]
                   ["-?" "--help"]])
 
 #_(defn parse-summary [args]
@@ -323,8 +326,11 @@
 
       (when (contains? tpn_type/edgetypes tpn-type)
         (if-not (and start-time stop-time)
-          (println "activity state has nil time(s)" start-time stop-time)
-          (println "activity execution time:" uid (:display-name obj) (float (- stop-time start-time))))))))
+          (println "activity:" uid "does not has start-time and stop-time")
+          (println "activity execution time:"
+                   uid
+                   (if (:display-name obj) (str "(" (:display-name obj) ")") "(null-activity)")
+                   (float (- stop-time start-time))))))))
 
 (defn tpn-finished-execution? []
   (dispatch/network-finished? (:tpn-map @state)))
@@ -377,11 +383,17 @@
 (defn update-tpn-dispatch-state! [new-state]
   (update-state! {:tpn-dispatch new-state}))
 
-(defn handle-tpn-finished [netid]
-  (println "handle-tpn-finished" netid)
+(defn tpn-finished-helper
+  "To be called when the tpn has finished or failed"
+  [netid]
+  (println "handle-tpn-finished helper" netid)
   (println "Network end-node reached. TPN Execution finished" netid)
+
+  (publish-mission-updates-message)
+
   (show-activity-execution-times)
   (show-tpn-execution-time)
+
   (let [old-state (get-tpn-dispatch-state)
         old-info  (last old-state)
         new-info  (conj old-info {:end-time (pt-timer/getTimeInSeconds)})
@@ -390,28 +402,31 @@
     (when (:dispatch-id old-info)
       (println "command finished" new-info)
       (plant_i/finished (:plant-interface @state) (name (:plant-id old-state)) (:dispatch-id old-state) nil nil))
-    (update-tpn-dispatch-state! new-state))
+    (update-tpn-dispatch-state! new-state)))
+
+(defn handle-tpn-finished [netid]
+
+  (tpn-finished-helper netid)
+
   (when with-dispatcher-manager
     (publish-message {:id     netid
                       :tpn    (get-tpn)
                       :state  :finished
                       :reason {:finish-state :success}}
                      dispatcher-manager-rkey))
+
   (when tpn-finished-cb
     (tpn-finished-cb (get-tpn)))
-  ;(println "Sleep before exit")
-  ;(Thread/sleep 1000)
-  (exit))
 
-(defn get-temporal-bounds [act-id tpn]
-  (let [x (get-in tpn [act-id :constraints])
-        cnst-id (if x (first x))]
-    (if cnst-id (:value (cnst-id tpn)))))
+  (exit))
 
 (defn handle-tpn-failed [tpn node-state fail-reasons]
   (println "TPN Failed" (:network-id tpn))
   (println "Reason for each activity failure")
   (pprint fail-reasons)
+
+  (tpn-finished-helper (:network-id tpn))
+
   (when with-dispatcher-manager
     (publish-message {:id     (:network-id tpn)
                       :tpn    tpn
@@ -419,12 +434,21 @@
                       :reason {:finish-state :failed
                                :node-state   node-state
                                :fail-reasons fail-reasons}}
-                     dispatcher-manager-rkey)))
+                     dispatcher-manager-rkey))
+
+  (if tpn-failed-cb
+    (tpn-failed-cb tpn node-state fail-reasons))
+
+  (exit))
+
+(defn get-temporal-bounds [act-id tpn]
+  (let [x (get-in tpn [act-id :constraints])
+        cnst-id (if x (first x))]
+    (if cnst-id (:value (cnst-id tpn)))))
 
 (defn handle-activity-timeout
   "To be called when an activity has temporal bounds"
   [act-id]
-  (println act-id "timed out")
   (act-failed-handler act-id :timeout))
 
 (defn schedule-activity-timeouts [activities tpn]
@@ -579,6 +603,7 @@
         started? (dispatch/activity-started? act-obj)]
 
     (when started?
+      (println act-id "timed out")
       (let [fail-time  (pt-timer/getTimeInSeconds)
             ; Calling get-node-started-time before activity-failed because activity-failed
             ; updates node time for all the nodes that could possibly fail along the path
@@ -601,10 +626,11 @@
               #_(doseq [[nid time-val] node-state]
                   (println "act-fail-handler" nid ":" (str (pt-timer/make-instant time-val))))
               #_(pprint node-state)
-              (if tpn-failed-cb (tpn-failed-cb (get-tpn) node-state fail-reasons)
-                                (handle-tpn-failed (get-tpn) node-state fail-reasons)))
+              (handle-tpn-failed (get-tpn) node-state fail-reasons))))))))
 
-            (handle-tpn-finished (get-network-id))))))))
+
+
+
 
 (defn get-non-plant-msg-type
   "Non plant message is:
@@ -800,6 +826,15 @@
 
   (reset-network tpn))
 
+(defn setup-and-dispatch-tpn-with-bindings [tpn bindings abs-dispatch-time]
+  ;(println "setup-and-dispatch-tpn-with-bindings")
+  ;(println "bindings")
+  ;(pprint bindings)
+  (init-new-tpn tpn)
+  (update-state! {:tpn-bindings bindings :tpn-dispatch-time abs-dispatch-time})
+  (dispatch/set-node-bindings bindings)
+  (dispatch-tpn tpn))
+
 (defn setup-and-dispatch-tpn [tpn-net]
   #_(println "Dispatching TPN from file" file)
   ; Sequence of steps when dispatching TPN from file
@@ -813,17 +848,9 @@
         (println "Waiting for tpn dispatch command. Not dispatching")
 
         :else
-        (do (reset-network tpn-net)
-            (dispatch-tpn tpn-net))))
-
-(defn setup-and-dispatch-tpn-with-bindings [tpn bindings abs-dispatch-time]
-  (println "setup-and-dispatch-tpn-with-bindings" abs-dispatch-time)
-  ;(println "bindings")
-  ;(pprint bindings)
-  (init-new-tpn tpn)
-  (update-state! {:tpn-bindings bindings :tpn-dispatch-time abs-dispatch-time})
-  (dispatch/set-node-bindings bindings)
-  (dispatch-tpn tpn))
+        (if bindings
+          (do (setup-and-dispatch-tpn-with-bindings tpn-net bindings nil))
+          (dispatch-tpn tpn-net))))
 
 (defn usage [options-summary]
   (->> ["TPN Dispatch Application"
@@ -1036,7 +1063,10 @@
         force-plant-id-local (get-in parsed [:options :force-plant-id])
         dispatch-all-choices (get-in parsed [:options :dispatch-all-choices])
         sim-clock (get-in parsed [:options :simulate-clock])
-        with-dispatcher-manager-option [:options :with-dispatcher-manager]]
+        with-dispatcher-manager-option (get-in parsed [:options :with-dispatcher-manager])
+        bindings-file-option (get-in parsed [:options :bindings-file])]
+
+
     ;(pprint parsed)
     (when help
       (println (usage (:summary parsed)))
@@ -1070,7 +1100,10 @@
 
     (def with-dispatcher-manager with-dispatcher-manager-option)
     (println "With Dispatcher manager" with-dispatcher-manager)
-
+    (when bindings-file-option
+      (def bindings (:bindings (tpn-json/read-bindings-from-json bindings-file-option)))
+      (println "Using bindings file: " bindings-file-option)
+      (pprint bindings))
     #_(clojure.pprint/pprint parsed)
     #_(clojure.pprint/pprint tpn-network)
     (update-state! (:options parsed))
