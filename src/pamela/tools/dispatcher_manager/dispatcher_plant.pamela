@@ -8,4 +8,4 @@
 (defpclass plant []
            :meta {:doc "A plant that runs dispatchers"}
 
-           :methods [(defpmethod dispatch_tpn [tpn show-in-planviz])])
+           :methods [(defpmethod dispatch_tpn [tpn bindings show-in-planviz])])

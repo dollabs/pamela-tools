@@ -28,6 +28,7 @@
 (defonce tpn-failed-cb nil)                                 ; when tpn is failed, this callback will be called
 (defonce tpn-finished-cb nil)                               ; when tpn is finishes, this callback will be called
 (defonce dispatch-all-choices false)
+(defonce force-plant-id false)
 
 (def default-plant-id "dispatcher-manager")                 ;Will listen on this routing key for incoming tpns to be dispatched
 (def dispatch-command "dispatch_tpn")
@@ -45,6 +46,9 @@
 
 (defn set-dispatch-all-choices [val]
   (def dispatch-all-choices val))
+
+(defn set-force-plant-id [val]
+  (def force-plant-id val))
 
 (defn update-classpath-for-repl
   "Should only be called once"
@@ -125,21 +129,28 @@
     (tpn_json/to-file tpn tpn-file)
     tpn-file))
 
+(defn create-temp-bindings-file [msg-id bindings]
+  (let [the-file (jexec/make-tmp-file msg-id ".bindings.json")]
+    (tpn_json/write-bindings-to-json bindings the-file)
+    the-file))
+
 (defn update-with-unique-network-id [msg-id tpn]
   (let [netid-old (:network-id tpn)
         netid     (keyword (str (name netid-old) "-" msg-id))]
     (merge tpn {:network-id netid
                 netid       (netid-old tpn)})))
 
-(defn dispatch-tpn [msg-id tpn show-in-planviz]
+(defn dispatch-tpn [msg-id tpn bindings show-in-planviz]
   (println "Dispatching tpn " msg-id "show-in-planviz" show-in-planviz)
   (let [msg-id-str (name msg-id)
         tpn        (if show-in-planviz
                      (update-with-unique-network-id msg-id-str tpn)
                      tpn)
         tpn-file   (create-temp-tpn-file msg-id-str tpn)
+        bindings-file (create-temp-bindings-file msg-id-str bindings)
         command    ["pamela.tools.dispatcher.dispatch_app"
                     "--with-dispatcher-manager"
+                    "--bindings-file" bindings-file
                     "-e" (plant/get-exchange rmq)
                     "-h" (plant/get-host rmq)
                     "-p" (plant/get-port rmq)]
@@ -149,6 +160,8 @@
         command    (if dispatch-all-choices
                      (conj command "--dispatch-all-choices")
                      command)
+        command (if force-plant-id (conj command "--force-plant-id"))
+
         command    (conj command (.getCanonicalPath tpn-file))]
     (println "tpn-file" tpn-file)
     (println "Starting dispatcher as" command "\n")
@@ -159,9 +172,11 @@
          plant-id              :plant-id
          state                 :state
          command               :function-name
-         [tpn show-in-planviz] :args} msg]
+         [tpn bindings show-in-planviz] :args} msg
+        bindings (tpn_util/convert-json-bindings-to-clj bindings)]
+
     (cond (and (= command dispatch-command))
-          (do (let [proc-info (dispatch-tpn msg-id tpn show-in-planviz)]
+          (do (let [proc-info (dispatch-tpn msg-id tpn bindings show-in-planviz)]
                 (update-state-start! msg proc-info)))
 
           :else
@@ -221,14 +236,15 @@
 (defn cancel-subscription []
   (def rmq (plant/cancel-subscription rmq)))
 
-(defn send-start-msg [plant-msg-id tpn show-in-planviz]
+(defn send-start-msg [plant-msg-id tpn bindings show-in-planviz]
   (println "Publishing start TPN message to Dispatcher Manager\nmsg-id tpn-id show-in-planviz\n" plant-msg-id (:network-id tpn) show-in-planviz
            (plant/start rmq
                         default-plant-id
                         plant-msg-id
                         "dispatch_tpn"
-                        [tpn show-in-planviz]
+                        [tpn (tpn_util/convert-bindings-to-json bindings) show-in-planviz]
                         {:tpn             tpn
+                         :bindings (tpn_util/convert-bindings-to-json bindings)
                          :show-in-planviz show-in-planviz}
                         nil nil)))
 
@@ -241,7 +257,7 @@
         msg-id          (second tpn-data)
         show-in-planviz true]
     (println "test-publish-tpn" msg-id)
-    (send-start-msg msg-id tpn show-in-planviz)
+    (send-start-msg msg-id tpn nil show-in-planviz)
     (when cancel
       (println "test-publish-tpn Sleeping for 10 secs")
       (Thread/sleep 10000)
