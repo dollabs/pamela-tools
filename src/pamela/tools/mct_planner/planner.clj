@@ -11,7 +11,7 @@
             [pamela.tools.mct-planner.solver :as solver]
             [pamela.tools.mct-planner.expr :as expr]
             [pamela.tools.mct-planner.util :as ru]
-            [clojure.walk :as w]))
+            [pamela.tools.utils.tpn-json :as pt-json]))
 
 (defn filter-temporal-choice-bindings [expr-var-bindings]
   (reduce (fn [res [varid value]]
@@ -44,7 +44,7 @@
             (let [range-vars (filter (fn [var]
                                        (ru/is-range-var? var))
                                      vars)
-                  range-var (first range-vars)]
+                  range-var  (first range-vars)]
 
               (if-not (nil? range-var)
                 (conj result {nid range-var})
@@ -75,14 +75,14 @@
                     solutions)))
 
 (defn solve-internal [tpn exprs nid-to-var var-to-nid-lu n-iterations expression-bindings]
-  (let [n-iterations (or n-iterations 1)
-        solutions (solver/solve exprs nid-to-var n-iterations expression-bindings)
+  (let [n-iterations   (or n-iterations 1)
+        solutions      (solver/solve exprs nid-to-var n-iterations expression-bindings)
         good-solutions (get-successful-solutions solutions)
-        good-solution (first good-solutions)
-        new-bindings (when good-solution
-                       (let [var-bindings (filter-temporal-choice-bindings (:bindings good-solution))]
-                         (var-to-node-bindings var-bindings var-to-nid-lu)))
-        ]
+        good-solution  (first good-solutions)
+        new-bindings   (when good-solution
+                         (let [var-bindings (filter-temporal-choice-bindings (:bindings good-solution))]
+                           (var-to-node-bindings var-bindings var-to-nid-lu)))]
+
     (println "Total solutions" (count solutions))
     (println "Good solutions" (or (count good-solutions) 0))
     (when good-solution (pprint (:metrics good-solution)))
@@ -90,31 +90,46 @@
      :tpn                          tpn
      :previous-expression-bindings expression-bindings
      :bindings                     new-bindings
-     :nid-2-var                    nid-to-var
-     ; For my debug purpose
-     ;:var-bindings var-bindings
-     ;:solution     good-solution
-     }
-    ))
+     :nid-2-var                    nid-to-var}))
+; For my debug purpose
+;:var-bindings var-bindings
+;:solution     good-solution
+
+
 
 (defn solve [tpn & [bindings n-iterations]]
   "bindings are assumed to be nil or expression variables and their values.
   Use temporal-bindings-from-tpn-state to convert from node bindings to expression bindings"
   (let [exprs-details (expr/make-expressions-from-map tpn)
-        exprs (:all-exprs exprs-details)
-        nid-to-var (:nid-2-var exprs-details)
+        exprs         (:all-exprs exprs-details)
+        nid-to-var    (:nid-2-var exprs-details)
         var-to-nid-lu (:var-2-nid exprs-details)]
     (solve-internal tpn exprs nid-to-var var-to-nid-lu n-iterations bindings)))
 
 (defn solve-with-node-bindings [tpn node-bindings n-iterations]
   (let [exprs-details (expr/make-expressions-from-map tpn)
-        exprs (:all-exprs exprs-details)
-        nid-to-var (:nid-2-var exprs-details)
+        exprs         (:all-exprs exprs-details)
+        nid-to-var    (:nid-2-var exprs-details)
         var-to-nid-lu (:var-2-nid exprs-details)]
     (merge (solve-internal tpn exprs nid-to-var var-to-nid-lu n-iterations (temporal-bindings-from-tpn-state nid-to-var node-bindings))
            {:previous-bindings node-bindings
-            :expr-details exprs-details
-            })))
+            :expr-details      exprs-details})))
+
+(defn solve-with-node-bindings-file [tpn-file bindings-file n-iterations]
+  (let [{tpn :tpn bindings :bindings} (pt-json/read-tpn-with-bindings tpn-file bindings-file)]
+    (solve-with-node-bindings tpn bindings n-iterations)))
+
+(defn solve-and-write-bindings
+  "Read and solve TPN from given file
+   Write bindings to given file"
+  [tpn-file to-bindings-file n-iterations]
+  (let [result   (solve-with-node-bindings-file tpn-file nil n-iterations)
+        bindings (if (:bindings result)
+                   {:bindings (:bindings result)}
+                   (do (println "No bindings found for tpn:" tpn-file)
+                       {:bindings {}}))]
+    (pt-json/write-bindings-to-json bindings to-bindings-file)
+    bindings))
 
 ;(pprint ["Bindings" (-> x :solution :bindings)
 ;         "Node bindings" (-> x :solution :node-bindings)
