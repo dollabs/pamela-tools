@@ -23,7 +23,7 @@
   #_(:gen-class))
 
 (def debug false)
-(def default-exchange (str "test-" (System/getProperty "user.name")))
+(def default-exchange "tpn-updates"#_(str "test-" (System/getProperty "user.name")))
 (def default-host "localhost")
 (def default-port 5672)
 
