@@ -12,7 +12,7 @@
            (clojure.lang PersistentQueue)
            (java.util.regex Pattern))
   (:require [pamela.tools.utils.tpn-types :as tpn_types]
-
+    ; Only carefully add pamela.tools deps here.
             [clojure.pprint :refer :all]
             [clojure.string :as str]
             [clojure.data :refer :all]
@@ -232,7 +232,7 @@
 (defn map-from-json-str [jsn]
   (try
     (json/read-str jsn :key-fn #(keyword %))
-    (catch Exception e
+    (catch Exception _
       (to-std-err
         (println "Error parsing map-from-json-str:\n" jsn + "\n")))))
 
@@ -361,31 +361,6 @@
 (defn is-edge "Return node type"
   [obj]
   ((:tpn-type obj) tpn_types/edgetypes))
-
-(defn collect-objects-in-bfs-xx [tpn]
-  (let [begin-node (:uid (get-begin-node tpn))]
-    (loop [objs    []
-           handled #{}
-           remain  [begin-node]]
-      (if (nil? (first remain))
-        objs
-        (let [obj       (get-object (first remain) tpn)
-              is_node   ((:tpn-type obj) tpn_types/nodetypes)
-              is_edge   ((:tpn-type obj) tpn_types/edgetypes)
-              next-objs (cond is_node (:activities obj)
-                              is_edge [(:end-node obj)]
-                              :else [])]
-          (pprint obj)
-          (println (:uid obj))
-          (println is_node is_edge)
-          (println objs)
-          (println remain)
-          (println "-----")
-          (recur (if (contains? handled (:uid obj))
-                   objs
-                   (conj objs (:uid obj)))
-                 (conj handled (:uid obj))
-                 (into (into [] (rest remain)) next-objs)))))))
 
 (defn make-bfs-walk
   "Return list of collected and next set of objects"
