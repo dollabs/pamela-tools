@@ -15,6 +15,7 @@
            (java.util.concurrent TimeUnit)
            (java.io FileOutputStream File)))
 
+(def debug false)
 
  ;Examples
  ;(start-process "xyz" ["java" "-version"] nil :temp1) ; Output goes nowhere
@@ -59,8 +60,8 @@
         (.redirectOutput process-executor (make-temp-file-outstream id "-stdout.txt"))
 
         :else
-        (println "stdout for id" id "will go nowhere")
-        ))
+        (println "stdout for id" id "will go nowhere")))
+
 
 (defn start-process
   "id: Some identifier. Used when finish-handler is not-nil to notify which process has ended
@@ -77,7 +78,7 @@
   (let [as-str (map (fn [x]
                       (str x)) args)
         j-array (into-array as-str)
-        _ (println "Executing command:" id as-str)
+        _ (when debug (println "Executing command:" id as-str))
         pe (new ProcessExecutor j-array)
         _ (redirect-output (if (keyword id)                 ; output filename should be a string
                              (name id) id) pe out-stream)
