@@ -31,10 +31,6 @@
            [fname after]))
        fnames))
 
-(defn print-dispatcher-state []
-  (doseq [[k {state :state}] @dispatcher/state]
-    (println k (last state))))
-
 ; For use in repl only for now
 (defn dispatch-all-tpn []
   (init-dapp)
