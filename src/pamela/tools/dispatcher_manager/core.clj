@@ -160,7 +160,9 @@
         command    (if dispatch-all-choices
                      (conj command "--dispatch-all-choices")
                      command)
-        command (if force-plant-id (conj command "--force-plant-id"))
+        command (if force-plant-id
+                  (conj command "--force-plant-id")
+                  command)
 
         command    (conj command (.getCanonicalPath tpn-file))]
     (println "tpn-file" tpn-file)
@@ -331,3 +333,7 @@
 
     (swap! state assoc :options (:options parsed))
     (init subscription-key exchange host port)))
+
+(defn print-state []
+  (doseq [[k {state :state}] @state]
+    (println k (last state))))
