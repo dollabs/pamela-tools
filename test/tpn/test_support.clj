@@ -27,7 +27,7 @@
 
 (defn check-null-activities [acts objects]
   (is (every? (fn [act]
-                (let [obj (act objects)
+                (let [obj   (act objects)
                       enode ((:end-node obj) objects)]
 
                   (= (type obj) pamela.tools.dispatcher.tpnrecords.null-activity)
@@ -56,12 +56,12 @@
 (defn simple-walk [begin-node-uid objects]
   (with-local-vars [visit-count {}]
     (twalk/begin-walk (begin-node-uid objects) (fn [obj _]
-                                                        #_(println "got " (:uid obj) (type obj))
-                                                        (var-set visit-count
-                                                                 (assoc @visit-count
-                                                                   (:uid obj) (conj ((:uid obj) @visit-count) (:uid obj))))
-                                                        #_(println @visit-count)
-                                                        ) objects)
+                                                 #_(println "got " (:uid obj) (type obj))
+                                                 (var-set visit-count
+                                                          (assoc @visit-count
+                                                            (:uid obj) (conj ((:uid obj) @visit-count) (:uid obj))))
+                                                 #_(println @visit-count)
+                                                 ) objects)
     #_(clojure.pprint/pprint @visit-count)
     (is (every? (fn [[_ v]]
                   (= 1 (count v))
@@ -78,26 +78,39 @@
                       ;(println (.getCanonicalPath file-obj))
 
                       (let [tpn-or-htn (tpn-json/from-file file-obj)
-                            net-obj (util/get-network-object tpn-or-htn)]
+                            net-obj    (util/get-network-object tpn-or-htn)]
                         (if (= :network (:tpn-type net-obj))
                           (.getCanonicalPath file-obj)
                           #_{:file file-obj :tpn-map tpn-or-htn}))) js-files)))
 
 (defn get-all-tpn-files-in-test []
   (let [js-files (fs/find-files (str fs/*cwd* "/test") #".*json")
-        tpns (sort (read-and-filter-tpns js-files))
+        tpns     (sort (read-and-filter-tpns js-files))
         ; make ready for testing
-        tpns (reduce (fn [result tpn]
-                       (conj result [tpn])) []  tpns )
+        tpns     (reduce (fn [result tpn]
+                           (conj result [tpn])) [] tpns)
         ]
     (println "Got htn-or-tpn files" (count js-files) "tpn files" (count tpns))
     tpns))
+
+(defn get-tpn-files-by-ext []
+  (let [js-files (sort (map (fn [file-obj]
+                              (str file-obj))
+                            ;Matches *.tpn.json
+                            (fs/find-files (str fs/*cwd* "/test") #".*\.tpn\.json")))]
+    ;(println "Got tpn files" (count js-files))
+    js-files))
+
+(defn get-tpn-bindings-files-in-test []
+  (let [files (get-tpn-files-by-ext)]
+    (map (fn [tpn-file]
+           [tpn-file (str tpn-file ".bindings.json")])
+         files)))
 
 (defn get-all-tpn-files-as-vec []
   (into [] (get-all-tpn-files-in-test)))
 
 (defn check-stdout-to-file []
-  (with-open [fw (clojure.java.io/writer "temp.txt")
-              ]
+  (with-open [fw (clojure.java.io/writer "temp.txt")]
     (binding [*out* fw]
       (println "Test writing this to file from println/stdout"))))
