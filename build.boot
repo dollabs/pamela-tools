@@ -14,7 +14,7 @@
 (set-env!
   :source-paths #{"test"}
   :resource-paths #{"src"}
-  :repositories #(conj % ["jahmm repo" {:url "http://repo.springsource.org/libs-release-remote"}])
+  :repositories #(conj % ["jahmm repo" {:url "https://repo.springsource.org/libs-release-remote"}])
   :dependencies '[[org.clojure/clojure "1.8.0"]
                   ;[onetom/boot-lein-generate "RELEASE" :scope "test"]
                   [adzerk/boot-test "RELEASE" :scope "test"]
