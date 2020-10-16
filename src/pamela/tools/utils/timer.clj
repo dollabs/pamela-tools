@@ -11,8 +11,8 @@
   ^{:doc "Namespace to wrap timer functionality"}
   (:require [pamela.tools.utils.util :as pt-util]
             [ruiyun.tools.timer :as timer]
-            [clojure.core.async :as async]
-            )
+            [clojure.core.async :as async])
+
   (:import (java.time Instant)))
 
 (defonce timer (timer/deamon-timer "Pamela tools timer"))
@@ -42,6 +42,10 @@
 
 (defn reset-call-back-agent []
   (restart-agent call-backs @call-backs))
+
+(defn reset-call-back-state []
+  (send call-backs (fn [_]
+                     [])))
 
 (defn- insert-real [cbs time fn]
   ;(println "cbs" cbs time fn)
@@ -82,8 +86,8 @@
   [cval]
   {:pre [(not (nil? cval))]}
   (if (> @clock cval)
-    (pt-util/to-std-err (println "update-clock value is in past:" cval "current clock" @clock))
-    )
+    (pt-util/to-std-err (println "update-clock value is in past:" cval "current clock" @clock)))
+
   (do (reset! clock cval)
       (if (get-use-sim-time)
         (send call-backs process-timers cval))))
@@ -103,12 +107,12 @@
     (if (nil? wrt-time)
       (timer/run-task! fn :delay delay :by timer)
       (let [at-time (+ delay wrt-time)
-            now (get-unix-time)
-            del (if (> at-time now)
-                        (- at-time now)
-                        0)]
-        (timer/run-task! fn :delay del :by timer)))
-    )
+            now     (get-unix-time)
+            del     (if (> at-time now)
+                      (- at-time now)
+                      0)]
+        (timer/run-task! fn :delay del :by timer))))
+
   (when use-sim-time
     (println "Pamela timer using sim clock time")
     (if (nil? wrt-time)
@@ -135,4 +139,4 @@
   (doseq [t (range 1 10)]
     ;(println "t" t)
     (schedule-task (fn []
-                     (println "tst timer" t)) (* 100 t)  )))
+                     (println "tst timer" t)) (* 100 t))))
