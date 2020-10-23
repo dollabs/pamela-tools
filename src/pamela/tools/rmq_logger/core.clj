@@ -21,13 +21,12 @@
             [clojure.tools.cli :as cli]
             [clojure.data.json :as cl-json]
             [clojure.string :as string]
-            [clojure.pprint :refer :all]
-    ;[mongo.db]
-            )
+            [clojure.pprint :refer :all])
 
   (:import (java.text SimpleDateFormat)
            (java.util Date)
-           (java.util.concurrent LinkedBlockingQueue TimeUnit)))
+           (java.util.concurrent LinkedBlockingQueue TimeUnit)
+           (java.net ConnectException)))
 
 (defonce sdf (SimpleDateFormat. "yyyy-MMdd-HHmm"))
 (def received-count 0)
@@ -66,10 +65,10 @@
 
   (let [bin-type? (if (= content-type "application/x-binary")
                     true false)
-        st (if-not bin-type? (String. payload "UTF-8"))
-        m (if-not bin-type? (util/map-from-json-str st)
-                            {:image "binary-data not displayed"})
-        m (conj m {:received-routing-key routing-key :exchange exchange})]
+        st        (if-not bin-type? (String. payload "UTF-8"))
+        m         (if-not bin-type? (util/map-from-json-str st)
+                                    {:image "binary-data not displayed"})
+        m         (conj m {:received-routing-key routing-key :exchange exchange})]
     ;(clojure.pprint/pprint metadata)
     ;(println "--- from exchange:" exchange ",routing-key:" routing-key)
     (when repl (clojure.pprint/pprint m))
@@ -78,9 +77,7 @@
                                       (subs untruncated-string
                                             0 (min @truncated-output-length
                                                    (count untruncated-string)))
-                                      untruncated-string)))
-    #_(when mongo? (mongo.db/to-db m))
-    ))
+                                      untruncated-string)))))
 
 (defn threaded-writer "Post the message to the Q"
   [payload exchange routing-key content-type time]
@@ -96,17 +93,19 @@
     (while (false? sig-terminate)                           ;until we receive sigterm
       (let [m (.poll msg-q 1 TimeUnit/SECONDS)]
         (when m (handle-message (:payload m) (:exchange m) (:routing-key m) (:content-type m) (:time m)))))
-    (catch InterruptedException e
+    (catch InterruptedException _
       (util/to-std-err (println "threaded-read interrupted"))))
 
   (when sig-terminate
     (util/to-std-err (println "Clearing Q due to SIGTERM" (.size msg-q)))
-    (loop [m (.poll msg-q 1 TimeUnit/SECONDS)]
-      (if-not m
+    (loop [start-time (System/currentTimeMillis)
+           now        (System/currentTimeMillis)]
+      (if (>= now (+ 2000 start-time))
         nil
-        (do
+        (let [m (.poll msg-q 1 TimeUnit/SECONDS)]
+          (util/to-std-err (println "Waiting.. " (- (+ 2000 start-time) now)))
           (handle-message (:payload m) (:exchange m) (:routing-key m) (:content-type m) (:time m))
-          (recur (.poll msg-q 1 TimeUnit/SECONDS)))))
+          (recur start-time (System/currentTimeMillis)))))
 
     (util/to-std-err
       (println "Messages received so far" received-count)
@@ -157,35 +156,35 @@
   (def foo-args args)
   ;; (println "args:" args)
   ;; (println "args type:" (type args))
-  (let [parsed (cli/parse-opts args cli-options)
+  (let [parsed            (cli/parse-opts args cli-options)
         ;_ (println parsed)
-        ch-name (get-in parsed [:options :exchange])
-        host (get-in parsed [:options :host])
-        port (get-in parsed [:options :port])
-        help (get-in parsed [:options :help])
-        _ (def repl false)
-        _ (when help
-            (println (usage (:summary parsed)))
-            (exit 0))
-        connection (try (lcore/connect {:host host :port port})
-                        (catch java.net.ConnectException e
-                          (util/to-std-err (println (.getMessage e)
-                                                    (str "for " host ":" port)))))
-        _ (when-not connection (exit 1))
-        channel (lch/open connection)
-        _ (le/declare channel ch-name "topic")
-        queue (lq/declare channel)
-        qname (.getQueue queue)
-        _ (lq/bind channel qname ch-name {:routing-key "#"})
-        ctag (lc/subscribe channel qname incoming-msgs {:auto-ack true})
+        ch-name           (get-in parsed [:options :exchange])
+        host              (get-in parsed [:options :host])
+        port              (get-in parsed [:options :port])
+        help              (get-in parsed [:options :help])
+        _                 (def repl false)
+        _                 (when help
+                            (println (usage (:summary parsed)))
+                            (exit 0))
+        connection        (try (lcore/connect {:host host :port port})
+                               (catch ConnectException e
+                                 (util/to-std-err (println (.getMessage e)
+                                                           (str "for " host ":" port)))))
+        _                 (when-not connection (exit 1))
+        channel           (lch/open connection)
+        _                 (le/declare channel ch-name "topic")
+        queue             (lq/declare channel)
+        qname             (.getQueue queue)
+        _                 (lq/bind channel qname ch-name {:routing-key "#"})
+        ctag              (lc/subscribe channel qname incoming-msgs {:auto-ack true})
         ;dbhost (get-in parsed [:options :dbhost])
         ;dbport (get-in parsed [:options :dbport])
         ;_ (when dbhost
         ;    (mongo.db/connect! :host dbhost :port dbport)
         ;    (mongo.db/get-db (get-in parsed [:options :name]))
         ;    (update-mongo?-p! true))
-        truncation-length (get-in parsed [:options :length])
-        ]
+        truncation-length (get-in parsed [:options :length])]
+
 
     (reset! truncated-output-length truncation-length)
     (if @truncated-output-length
