@@ -14,7 +14,6 @@
 (set-env!
   :source-paths #{"test"}
   :resource-paths #{"src"}
-  :repositories #(conj % ["jahmm repo" {:url "https://repo.springsource.org/libs-release-remote"}])
   :dependencies '[[org.clojure/clojure "1.8.0"]
                   ;[onetom/boot-lein-generate "RELEASE" :scope "test"]
                   [adzerk/boot-test "RELEASE" :scope "test"]
@@ -25,7 +24,6 @@
                   [incanter "1.5.5"]
                   [me.raynes/fs "1.4.6"]
                   [net.mikera/imagez "0.12.0"]
-                  [be.ac.ulg.montefiore.run.jahmm/jahmm "0.6.2"]
                   ;Loading src/pamela_tools/utils/mongo/db.clj...
                   ;CompilerException java.lang.RuntimeException: Unable to find static field: ACKNOWLEDGED in class com.mongodb.WriteConcern, compiling:(monger/core.clj:59:1)
                   ; Monger 3.1.0 does not load in my repl but compiles fine!
