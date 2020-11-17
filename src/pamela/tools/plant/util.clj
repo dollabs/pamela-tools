@@ -10,8 +10,8 @@
   (:require [clojure.set :as set]
             [clj-time.local :as l]
             [clj-time.format :as f]
-            [clj-time.core :as c])
-  (:import (be.ac.ulg.montefiore.run.jahmm ObservationInteger)))
+            [clj-time.core :as c]))
+
 
 ; A unique id to generate sequence of ids for each method invocation
 
@@ -72,17 +72,6 @@
               ;(println v val)
               (conj v (map-to-vector (set/rename-keys val c2i))))
             [] rows)))
-
-(defn to-integer-observations [a-list]
-  "Returns java arraylist of observation objects"
-  (java.util.ArrayList. (map (fn [x]
-                               (ObservationInteger. x))
-                             a-list)))
-
-(defn integer-observations-from-2d-array [matrx]
-  "Each row is a list of integers"
-  (java.util.ArrayList. (map (fn [a-list]
-                               (to-integer-observations a-list)) matrx)))
 
 (defn vector-to-map
   "Given vector, using the index to lookup a key in idx-to-key
