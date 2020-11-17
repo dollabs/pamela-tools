@@ -15,10 +15,11 @@
             [monger.collection :as mc]
             [monger.query :as mq]
 
-            [clojure.pprint :refer :all]
-            )
+            [clojure.pprint :refer :all])
+
   (:import (be.ac.ulg.montefiore.run.jahmm.learn BaumWelchLearner)
-           (be.ac.ulg.montefiore.run.jahmm ViterbiCalculator)))
+           (be.ac.ulg.montefiore.run.jahmm ViterbiCalculator)
+           (be.ac.ulg.montefiore.run.jahmm ObservationInteger)))
 
 ; HMM Learning code
 
@@ -51,6 +52,17 @@
 
 (def pamela-hmm (hmm/make-model pamela-model))
 
+(defn to-integer-observations [a-list]
+  "Returns java arraylist of observation objects"
+  (java.util.ArrayList. (map (fn [x]
+                               (ObservationInteger. x))
+                             a-list)))
+
+(defn integer-observations-from-2d-array [matrx]
+  "Each row is a list of integers"
+  (java.util.ArrayList. (map (fn [a-list]
+                               (to-integer-observations a-list)) matrx)))
+
 (defn get-observations [db-name collection observation-key]
   (let [db (mdb/get-db db-name)]
     ; Convert observation values to keywords
@@ -81,7 +93,7 @@
           data-ints (hmm/to-emission-indices model data)]
       (.setNbIterations bw iterations)
       (println "BW Iterations" (.getNbIterations bw))
-      (.learn bw (:j-hmm model) (util/integer-observations-from-2d-array (list data-ints))))))
+      (.learn bw (:j-hmm model) (integer-observations-from-2d-array (list data-ints))))))
 
 (defn model-to-db [model db-name]
   (let [partial (select-keys model #{:pi :transitions :emissions :var-bindings})
@@ -109,8 +121,8 @@
                 initial-model)
         model-r (hmm/make-model model)                      ;converted to our internal record
         j-learned (learn-bw data model-r iterations)
-        learned-model (hmm/jahmm-to-model j-learned model-r)
-        ]
+        learned-model (hmm/jahmm-to-model j-learned model-r)]
+
     (println "From DB")
     (pprint l-hmms)
     (println "Model record")
@@ -132,7 +144,7 @@
 
 (defn apply-viterbi [data-as-symbols j-learned model]
   (let [data-as-ints (hmm/to-emission-indices model (into [] data-as-symbols))
-        vit (ViterbiCalculator. (util/to-integer-observations data-as-ints)
+        vit (ViterbiCalculator. (to-integer-observations data-as-ints)
                                 j-learned)
         states-in (map int (.stateSequence vit))]
     states-in))
@@ -178,8 +190,8 @@
                               (println "Last result:" (last (last result)))
                               (conj result (viterbi-db (extract-observations sample :observed-face) mdb-name (last (last result)))))
                             [] data-parts)
-        vit-flat (combine-parts vit-interval vit-learned)   ;(into [] (flatten vit-learned))
-        ]
+        vit-flat (combine-parts vit-interval vit-learned)]   ;(into [] (flatten vit-learned))
+
     ;(viterbi-db data-sym mdb-name)
 
     ;(println "Data flat:" (count data-flat) (count data-transition-ints))
@@ -205,8 +217,8 @@
                               (conj result (apply-viterbi (extract-observations sample :observed-face) j-learned coin-model)))
                             [] vit-samples)
         _ (println "Vit learned" (count vit-learned))
-        vit-learned (into [] (flatten vit-learned))
-        ]
+        vit-learned (into [] (flatten vit-learned))]
+
 
     ;(apply-viterbi (extract-observations test-data :observed-face) j-learned coin-model)
     (println "partition count:" (count vit-samples))
@@ -214,12 +226,12 @@
     (dotimes [n (count vit-learned)]
       (println (inc n) "," (get vit-learned n) ","
                (get vit-samples-ints n)))
-    (println "java hmm learned" j-learned)
+    (println "java hmm learned" j-learned)))
     ;(doseq [part (partition vit-lookback vit-frequency test-data)]
     ;  (println (count part) part )
     ;  (println (apply-viterbi (extract-observations part :observed-face) j-learned coin-model))
     ;  )
-    ))
+
 
 ; Version that applies viterbi to all samples and prints CSV
 (defn test-bw-from-db-2 []
@@ -235,16 +247,16 @@
 
         learned (learn-bw sample-data-symbols
                           hmm bwiterations)
-        viterbi (ViterbiCalculator. (util/to-integer-observations test-data-int) learned)
+        viterbi (ViterbiCalculator. (to-integer-observations test-data-int) learned)
         vit-states-int (into [] (map int (.stateSequence viterbi)))
-        vit-states (into [] (hmm/from-transition-indices hmm vit-states-int))
-        ]
+        vit-states (into [] (hmm/from-transition-indices hmm vit-states-int))]
+
     (pprint {
              :all-samples   (count all-samples)
              :sample-data-2 (take 2 sample-data)
              :test-data-2   (take 2 test-data)
-             :learned       learned
-             })
+             :learned       learned})
+
     ;(println "Viterbi" viterbi)
     (println "state sequence" (take 10 vit-states))
     (dotimes [n (count test-data)]
@@ -252,9 +264,9 @@
                (get test-data-states-int n) ","
 
                (name (get vit-states n)) ","
-               (:chosen-coin (get test-data n))
-               ))
-    ))
+               (:chosen-coin (get test-data n))))))
+
+
 
 ; Previous version that extracted observations only
 (defn test-bw-from-db
@@ -266,7 +278,7 @@
         both (split-observations as-ints)
         sample-data (:sample-data both)
         test-data (:test-data both)
-        obs-hmm (util/integer-observations-from-2d-array (list sample-data))
+        obs-hmm (integer-observations-from-2d-array (list sample-data))
         _ (println "BW Iterations" (.getNbIterations bw))
         _ (.setNbIterations bw bwiterations)
         _ (println "BW Iterations" (.getNbIterations bw))
@@ -280,9 +292,9 @@
              :j-learned    j-learned})
 
     #_(loop [counter 0]
-        (if (= counter (count test-data)))
-        )
+        (if (= counter (count test-data))))
+
     (dotimes [n (count test-data)]
-      (println (take n test-data))))
-  )
+      (println (take n test-data)))))
+
 
