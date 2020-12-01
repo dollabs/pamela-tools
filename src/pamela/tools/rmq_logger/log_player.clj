@@ -15,8 +15,8 @@
             [clojure.pprint :refer :all]
             [clojure.tools.cli :as cli]
             [clojure.data.json :as json]
-            [clojure.string :as str]
-            )
+            [clojure.string :as str])
+
   (:import (java.util Date Timer TimerTask)))
 
 ; Python RMQ player
@@ -54,6 +54,10 @@
                   ["-l" "--num-lines Nlines" "Number of lines to dispatch" :parse-fn #(Integer/parseInt %)]
                   ["-c" "--simulate-clock Frequency" "Will publish clock messages to rkey clock at given frequency" :parse-fn #(Integer/parseInt %) :default 0]
                   ["-?" "--help" "Print this help" :default nil]])
+
+(defn get-pending-events []
+  (- events-scheduled events-count))
+
 
 (defn make-java-date
   "Returns java date object initialized with millis since unix epoc"
@@ -128,7 +132,7 @@
     (let [dispatch-duration (- (nth (last @timer-latency) 2)
                                (nth (first @timer-latency) 2))]
       (println "Events to be dispatched:" events-scheduled)
-      (println "Events dispatched" events-count ", pending events:" (- events-scheduled events-count))
+      (println "Events dispatched" events-count ", pending events:" (get-pending-events))
       (println "Event Dispatch latency min and max in millis:" (apply min deltas) "," (apply max deltas))
       (println "Dispatch duration in millis" dispatch-duration)
       (println "Dispatch duration actual - expected in millis:" (- dispatch-duration dispatch-duration-expected) "\n"))
@@ -146,8 +150,8 @@
     (cond repl
           (println "In repl. Not exiting")
           (= events-scheduled events-count)
-          (println "not= events-scheduled events-dispatched" events-scheduled events-count)
-          )))
+          (println "not= events-scheduled events-dispatched" events-scheduled events-count))))
+
 
 (defn add-clock-events [events start-time end-time frequency]
   ;(println "add-clock-events" (count events) start-time end-time frequency)
@@ -208,14 +212,14 @@
                                       ;(println "Firing events at " time ", delta" (- (System/currentTimeMillis) real-time))
                                       (let [now (System/currentTimeMillis)]
                                         (publish-event data)
-                                        (log-timer-latency time (- now real-time) now)
-                                        )
-                                      ))
+                                        (log-timer-latency time (- now real-time) now))))
+
+
                    (make-java-date real-time))))
 
     (.schedule dispatch-timer (make-timer-task #(print-timer-latencies))
-               print-stats-time)
-    ))
+               print-stats-time)))
+
 
 (defn setup-rmq [host port exchange rkey]
   (def default-rkey rkey)
@@ -234,6 +238,19 @@
     (schedule-events file clock-events)
     (catch Exception e
       (System/exit 1))))
+
+; TODO Function to dispatch a log file and wait for all events to finish
+;;;; set repl true
+;;;; setup-rmq
+;; for each f in file:
+;;;;;; schedule events
+;;;;;; Wait for events to be finished publishing.. pending events to be 0
+;;; DONE
+;;;;;
+
+
+
+
 
 (defn -main [& args]
   (def repl false)
@@ -268,8 +285,8 @@
   (let [lines (util/read-lines from-file)
         ;lines (take 10 lines)
         events (reduce (fn [res line]
-                         (add-event res line)) (sorted-map) lines)
-        ]
+                         (add-event res line)) (sorted-map) lines)]
+
     (with-open [w (clojure.java.io/writer to-file)]
 
       #_(.write w (str "yel"))
@@ -293,6 +310,6 @@
         data (reduce (fn [res line]
                        (let [[_ data] (make-event line)]
                          (conj res data)))
-                     [] lines)
-        ]
+                     [] lines)]
+
     (def test-data data)))

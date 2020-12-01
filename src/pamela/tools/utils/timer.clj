@@ -103,7 +103,7 @@
   {:pre [(not (nil? fn)) (not (nil? delay))]}
 
   (when (not use-sim-time)
-    (println "Pamela timer using real time")
+    #_(println "Pamela timer using real time")
     (if (nil? wrt-time)
       (timer/run-task! fn :delay delay :by timer)
       (let [at-time (+ delay wrt-time)
@@ -114,7 +114,7 @@
         (timer/run-task! fn :delay del :by timer))))
 
   (when use-sim-time
-    (println "Pamela timer using sim clock time")
+    #_(println "Pamela timer using sim clock time")
     (if (nil? wrt-time)
       (insert (+ (get-unix-time) delay) fn)
       (insert (+ wrt-time delay) fn))))
