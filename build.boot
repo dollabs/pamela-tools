@@ -54,7 +54,7 @@
          "Use aot to check for errors"
          []
          (println "Compiling files")
-         (comp (aot :all true) (target :dir #{"target-compile"} :no-clean true)))
+         (comp (aot :all true) (target :dir #{"target"} :no-clean true)))
 
 (deftask build
          "Collects clj files "
