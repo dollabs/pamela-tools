@@ -43,6 +43,7 @@
 (def timeunit :secs)
 (def cancel-tc-violations false)                            ;when true, activities that violate upper bounds will be cancelled.
 
+(def mission-id nil)
 (def force-plant-id false)
 (def monitor-mode nil)
 (def no-tpn-publish false)                                  ;we always publish tpn by default.
@@ -130,6 +131,7 @@
                   [nil "--simulate-clock" "Will listen for clock messages on rkey `clock` and use the clock for timeouts only!" :default false]
                   [nil "--with-dispatcher-manager" "Will publish TPN failed/finished state with reason" :default false]
                   [nil "--bindings-file file-name" "Will use the bindings specified in json file" :default nil]
+                  [nil "--mission-id mission-id" "Optional mission-id when needed" :default nil]
                   ["-?" "--help"]])
 
 #_(defn parse-summary [args]
@@ -139,20 +141,20 @@
                                                                (:required opt)))) args)))
 
 (defn reset-network-publish [netid & [ids]]
-  (let [netid (if-not netid
-                (get-network-id)
-                netid)
+  (let [netid     (if-not netid
+                    (get-network-id)
+                    netid)
 
-        ids (if-not ids
-              (tpn_walk/collect-tpn-ids netid (:tpn-map @state))
-              ids)
+        ids       (if-not ids
+                    (tpn_walk/collect-tpn-ids netid (:tpn-map @state))
+                    ids)
 
-        st (apply merge (map (fn [id]
-                               {id {:uid              id
-                                    :tpn-object-state :normal}})
-                             ids))
+        st        (apply merge (map (fn [id]
+                                      {id {:uid              id
+                                           :tpn-object-state :normal}})
+                                    ids))
         exch-name (get-exchange-name)
-        channel (get-channel exch-name)]
+        channel   (get-channel exch-name)]
 
     #_(pprint st)
     ; TODO refactor reset to a method
@@ -162,7 +164,7 @@
 (defn reset-network
   ([net-objs]
    (let [netid (:network-id net-objs)
-         ids (tpn_walk/collect-tpn-ids netid net-objs)]
+         ids   (tpn_walk/collect-tpn-ids netid net-objs)]
      (reset-network ids netid)))
   ([ids netid]
    (println "Reset network (internal)")
@@ -195,15 +197,15 @@
 
 (defn publish-activity-to-plant [plant act-id]
   ;(println "publish-activity-to-plant" act-id)
-  (let [tpn (get-tpn)
+  (let [tpn           (get-tpn)
         invocation-id (putil/make-method-id (str (name (get tpn :network-id)) "-" (name act-id) "-" putil/counter-prefix))
-        act-obj (get tpn act-id)
-        plant-id (if-not force-plant-id (get-plant-id act-obj)
-                                        "plant")
-        command (:command act-obj)
-        args (or (:args act-obj) [])
-        argsmap (or (:argsmap act-obj) {})
-        plant-part (:plant-part act-obj)]
+        act-obj       (get tpn act-id)
+        plant-id      (if-not force-plant-id (get-plant-id act-obj)
+                                             "plant")
+        command       (:command act-obj)
+        args          (or (:args act-obj) [])
+        argsmap       (or (:argsmap act-obj) {})
+        plant-part    (:plant-part act-obj)]
     (update-state! {invocation-id (:uid act-obj)})          ;When a plant sends observations about this invocation id, we find find corresponding act-id
     (dispatch/update-plant-dispatch-id act-id invocation-id)
     (plant_i/start plant (name plant-id) invocation-id command args argsmap plant-part nil)))
@@ -230,7 +232,7 @@
    otherwise all are values."
   [act-id]
   (let [act-obj (get (:tpn-map @state) act-id)
-        args (:args act-obj)]
+        args    (:args act-obj)]
     ;(println "Got act = " act-id args)
     (if (some arg-value-reference-type? args)
       :reference-type :value-type)))
@@ -240,17 +242,17 @@
   [plant act-id]
 
   (let [act-obj (get (:tpn-map @state) act-id)
-        args (:args act-obj)]
+        args    (:args act-obj)]
     ;(println )
     ;(pprint act-obj)
     (doseq [arg args]
       (when (arg-value-reference-type? arg)
 
-        (let [split-vals (parse-reference-field arg)
+        (let [split-vals            (parse-reference-field arg)
               belief-state-plant-id "bsm1"
-              for-plant-id (or (first split-vals) (get-plant-id act-obj)) ; not forcing plant-id for belief state TBD
-              field-name (second split-vals)
-              invocation-id (putil/make-method-id "bs1-query-id")]
+              for-plant-id          (or (first split-vals) (get-plant-id act-obj)) ; not forcing plant-id for belief state TBD
+              field-name            (second split-vals)
+              invocation-id         (putil/make-method-id "bs1-query-id")]
           ;(println "field references" split-vals args)
           (println "Query belief state: " act-id " arg:" arg "for-plant-id" for-plant-id)
           (update-state! {invocation-id [act-id arg]})      ; so that we can update bound values for reference fields.
@@ -292,7 +294,7 @@
   (let [plant (:plant-interface @state)]
     (when plant
       (doseq [act-id act-ids]
-        (let [act (get-in @state [:tpn-map act-id])
+        (let [act     (get-in @state [:tpn-map act-id])
               disp-id (dispatch/get-plant-dispatch-id act-id)]
           (when disp-id
             (println "Sending cancel message" act-id disp-id)
@@ -309,20 +311,20 @@
     (rmq/publish-object metrics "planner.metrics" chan exch)))
 
 (defn show-tpn-execution-time []
-  (let [tpn-map (:tpn-map @state)
-        net-obj ((:network-id tpn-map) tpn-map)
-        begin-uid (:begin-node net-obj)
-        end-uid (:end-node net-obj)
+  (let [tpn-map    (:tpn-map @state)
+        net-obj    ((:network-id tpn-map) tpn-map)
+        begin-uid  (:begin-node net-obj)
+        end-uid    (:end-node net-obj)
         node-times (dispatch/get-node-started-times tpn-map)
-        time (float (- (end-uid node-times) (begin-uid node-times)))]
+        time       (float (- (end-uid node-times) (begin-uid node-times)))]
     (println "TPN execution time:" time)
     time))
 
 (defn show-activity-execution-times []
   (doseq [[uid obj] (:tpn-map @state)]
-    (let [tpn-type (:tpn-type obj)
+    (let [tpn-type   (:tpn-type obj)
           start-time (get-in @dispatch/state [uid :start-time])
-          stop-time (get-in @dispatch/state [uid :end-time])]
+          stop-time  (get-in @dispatch/state [uid :end-time])]
 
       (when (contains? tpn_type/edgetypes tpn-type)
         (if-not (and start-time stop-time)
@@ -357,10 +359,10 @@
                                                                    (System/currentTimeMillis))
                                                                 1000))))
 
-    (let [timed-out? (if until-abs-time-millis (>= (System/currentTimeMillis) until-abs-time-millis)
-                                               false)
+    (let [timed-out?    (if until-abs-time-millis (>= (System/currentTimeMillis) until-abs-time-millis)
+                                                  false)
           tpn-finished? (tpn-finished-execution?)
-          more-wait? (not (or tpn-finished? timed-out?))]
+          more-wait?    (not (or tpn-finished? timed-out?))]
       ;(println "(stop-tpn-processing?)" (stop-tpn-processing?))
       ;(println "tpn-finished-execution?" (tpn-finished-execution?))
       ;(println "wait-until-tpn-finished timed-out?" timed-out?)
@@ -442,7 +444,7 @@
   (exit))
 
 (defn get-temporal-bounds [act-id tpn]
-  (let [x (get-in tpn [act-id :constraints])
+  (let [x       (get-in tpn [act-id :constraints])
         cnst-id (if x (first x))]
     (if cnst-id (:value (cnst-id tpn)))))
 
@@ -501,9 +503,11 @@
      ;:all-activities act-ids
      ;:finished-acts finished-ids
      ;:act-state act-state
-     :current-actions current-actions
-     :next-actions    (select-keys tpn next-activities-id)
-     :other-actions   (select-keys tpn other-act-ids)}))
+     :mission-id          mission-id
+     :tpn                 nil
+     :current-actions     current-actions
+     :next-actions        (select-keys tpn next-activities-id)
+     :other-possibilities (select-keys tpn other-act-ids)}))
 
 (defn publish-mission-updates-message []
   (publish-message (make-current-next-other-activities)
@@ -722,14 +726,14 @@
   "Called when in monitor mode"
   [act-msg]
   (pprint act-msg)
-  (let [network-id (get-in @state [:tpn-map :network-id])
+  (let [network-id  (get-in @state [:tpn-map :network-id])
         act-network (:network-id act-msg)
-        m (get @state :tpn-map)]
+        m           (get @state :tpn-map)]
 
     (when (= act-network network-id)
       (println "Found network " network-id)
-      (let [network-obj (util/get-object network-id m)
-            begin-node (util/get-object (:begin-node network-obj) m)
+      (let [network-obj  (util/get-object network-id m)
+            begin-node   (util/get-object (:begin-node network-obj) m)
             acts-started (disj (into #{} (keys act-msg)) :network-id)]
 
         (if (dispatch/network-finished? m)
@@ -762,7 +766,7 @@
   (update-state! {:activity-started-listener (rmq/make-subscription "tpn.activity.active"
                                                                     (fn [_ _ ^bytes payload]
                                                                       (let [data (String. payload "UTF-8")
-                                                                            m (tpn-json/map-from-json-str data)]
+                                                                            m    (tpn-json/map-from-json-str data)]
                                                                         (println "Got activity started message")
                                                                         (activity-started-handler m)))
 
@@ -784,8 +788,8 @@
 (defn dispatch-tpn [tpn-net]
   ;(reset-network tpn-net)
   ;(Thread/sleep 200)
-  (let [netid (:network-id tpn-net)
-        network (netid tpn-net)
+  (let [netid      (:network-id tpn-net)
+        network    (netid tpn-net)
         dispatched (dispatch/dispatch-object network tpn-net {})]
     (update-state! {:next-actions (util/make-next-actions tpn-net)})
     (println "Dispatching netid" netid (util/getCurrentThreadName))
@@ -797,9 +801,9 @@
     (pprint cmd)
     (when (and (= :start (:state cmd))
                (= "dispatch-tpn" (:function-name cmd)))
-      (let [time (pt-timer/getTimeInSeconds)
+      (let [time      (pt-timer/getTimeInSeconds)
             old-state (get-tpn-dispatch-state)
-            old-info (last old-state)
+            old-info  (last old-state)
             new-state (conj old-state {:start-time  time
                                        :dispatch-id (:id cmd)})]
         (when (and old-info (not (contains? old-info :end-time)))
@@ -876,7 +880,7 @@
 (defn publish-activity-state [id state net-id routing-key]
   "To use when plant observations come through"
   (let [exch (get-exchange-name)
-        ch (get-channel exch)]
+        ch   (get-channel exch)]
     (rmq/publish-object {:network-id net-id
                          id          {:uid              id
                                       :tpn-object-state state}}
@@ -925,7 +929,7 @@
   (println "activity finished with fail state" ((:id msg) @state))
   (publish-activity-state ((:id msg) @state) :failed (get-network-id) routing-key-finished-message))
 
-(defmethod handle-plant-message :status-update [_])       ;NOOP
+(defmethod handle-plant-message :status-update [_])         ;NOOP
 
 (defn handle-plant-reply-msg [msg]
   ;(println "handle-plant-reply-msg")
@@ -940,14 +944,14 @@
 
 (defn handle-bsm-reply-msg [msg]
   (when (= :finished (:state msg))
-    (let [invocation-id (:id msg)
+    (let [invocation-id     (:id msg)
           invocation-detail (invocation-id @state)
-          act-id (first invocation-detail)
-          replacement-arg (second invocation-detail)
-          new-field-value (get-in msg [:reason :value])
-          old-args (get-in @state [:tpn-map act-id :args])
-          new-args (replace {replacement-arg new-field-value} old-args)]
-          ; Note. Not updating argsmap as it is deprecated
+          act-id            (first invocation-detail)
+          replacement-arg   (second invocation-detail)
+          new-field-value   (get-in msg [:reason :value])
+          old-args          (get-in @state [:tpn-map act-id :args])
+          new-args          (replace {replacement-arg new-field-value} old-args)]
+      ; Note. Not updating argsmap as it is deprecated
 
       ;(println "Replacing old with new args" old-args new-args)
       ;(println "before activity" )
@@ -1044,27 +1048,28 @@
 
 (defn update-clock [_ _ data]
   (let [msg (util/map-from-json-str (String. data "UTF-8"))
-        ts (:timestamp msg)]
+        ts  (:timestamp msg)]
     (if ts (pt-timer/update-clock ts))))
 
 (defn go [& [args]]
-  (let [parsed (cli/parse-opts args cli-options)
-        help (get-in parsed [:options :help])
-        errors (:errors parsed)
+  (let [parsed                         (cli/parse-opts args cli-options)
+        help                           (get-in parsed [:options :help])
+        errors                         (:errors parsed)
         [tpn-file _] (get-tpn-file (:arguments parsed))
-        tpn-network (when tpn-file (tpn_import/from-file tpn-file))
-        exch-name (get-in parsed [:options :exchange])
-        host (get-in parsed [:options :host])
-        port (get-in parsed [:options :port])
-        monitor (get-in parsed [:options :monitor-tpn])
-        no-tpn-pub (get-in parsed [:options :no-tpn-publish])
-        auto-cancel (get-in parsed [:options :auto-cancel])
-        wait-for-dispatch (get-in parsed [:options :wait-for-dispatch])
-        force-plant-id-local (get-in parsed [:options :force-plant-id])
-        dispatch-all-choices (get-in parsed [:options :dispatch-all-choices])
-        sim-clock (get-in parsed [:options :simulate-clock])
+        tpn-network                    (when tpn-file (tpn_import/from-file tpn-file))
+        exch-name                      (get-in parsed [:options :exchange])
+        host                           (get-in parsed [:options :host])
+        port                           (get-in parsed [:options :port])
+        monitor                        (get-in parsed [:options :monitor-tpn])
+        no-tpn-pub                     (get-in parsed [:options :no-tpn-publish])
+        auto-cancel                    (get-in parsed [:options :auto-cancel])
+        wait-for-dispatch              (get-in parsed [:options :wait-for-dispatch])
+        force-plant-id-local           (get-in parsed [:options :force-plant-id])
+        dispatch-all-choices           (get-in parsed [:options :dispatch-all-choices])
+        sim-clock                      (get-in parsed [:options :simulate-clock])
+        mission-id-local               (get-in parsed [:options :mission-id])
         with-dispatcher-manager-option (get-in parsed [:options :with-dispatcher-manager])
-        bindings-file-option (get-in parsed [:options :bindings-file])]
+        bindings-file-option           (get-in parsed [:options :bindings-file])]
 
 
     ;(pprint parsed)
@@ -1079,6 +1084,9 @@
 
     (println "dispatch-all-choices" dispatch-all-choices)
     (dispatch/set-dispatch-all-choices dispatch-all-choices)
+
+    (println "mission-id" mission-id-local)
+    (def mission-id mission-id-local)
     (init)
 
     (if-not monitor-mode

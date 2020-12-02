@@ -41,8 +41,8 @@
         disp-ids   (replace-fnames-with-dot fnames "test")]
     (println "Total TPNs" (count fnames))
     (doseq [[tpn-file mission-id] disp-ids #_(take 1 disp-ids)]
-      (println "dispatching" (remove-ext mission-id) tpn-file)
+      (println "dispatching" (remove-ext mission-id) mission-id tpn-file)
       (let [tpn (tpn_json/from-file tpn-file)
             {bindings :bindings} (planner/solve-with-node-bindings tpn nil 1)]
         ;(pprint bindings)
-        (dispatcher/send-start-msg (remove-ext mission-id) tpn bindings true)))))
+        (dispatcher/send-start-msg (remove-ext mission-id) mission-id tpn bindings true)))))

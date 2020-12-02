@@ -70,12 +70,12 @@
   3. default activity-time"                                 ;Note -d option overrides default activity time
   [act-id netid]
   (let [time-precedence [activity-time]
-        network (get @networks netid)
-        constraints (filter (fn [constraint]
-                              (= :temporal-constraint (:tpn-type constraint))
-                              ) (pt-utils/get-constraints act-id network))
-        ub (if (and use-temporal-bounds (pos? (count constraints)))
-             (second (:value (first constraints))))
+        network         (get @networks netid)
+        constraints     (filter (fn [constraint]
+                                  (= :temporal-constraint (:tpn-type constraint))
+                                  ) (pt-utils/get-constraints act-id network))
+        ub              (if (and use-temporal-bounds (pos? (count constraints)))
+                          (second (:value (first constraints))))
         time-precedence (if ub
                           (conj time-precedence ub)
                           time-precedence)
@@ -103,20 +103,20 @@
 
 (defn incoming-msgs [_ _ data]
   (let [st (String. data "UTF-8")
-        m (tpn-json/map-from-json-str st)]
+        m  (tpn-json/map-from-json-str st)]
     (doseq [[k v] m]
       (when (instance? clojure.lang.IPersistentMap v)
         (let [before (pt-timer/getTimeInSeconds)]
           (println "Got activity start" k (:network-id m))
           (pt-timer/schedule-task #(publish k :active (:network-id m) "tpn.activity.active") 100)
           (pt-timer/schedule-task (fn []
-                                 (println "finished " k "in time" (float (- (pt-timer/getTimeInSeconds) before)))
-                                 (handle-activity-finished k (:network-id m)))
-                               (get-activity-execution-time k (:network-id m))))))))
+                                    (println "finished " k "in time" (float (- (pt-timer/getTimeInSeconds) before)))
+                                    (handle-activity-finished k (:network-id m)))
+                                  (get-activity-execution-time k (:network-id m))))))))
 
 (defn new-tpn [_ _ data]
   (let [strng (String. data "UTF-8")
-        m (tpn-json/map-from-json-str strng)]
+        m     (tpn-json/map-from-json-str strng)]
     (println "Got new tpn" (:network-id m))
 
     (swap! networks assoc (:network-id m) m)
@@ -159,9 +159,9 @@
     ; We cannot cancel a scheduled task because timer utility does not has an interface for it.
     ; so we will remove command-id in command-state as an indicator if the task is active or not.
     (pt-timer/schedule-task (fn []
-                           (publish-command-state id plant-id :started (System/currentTimeMillis) nil)
-                           (swap! command-state update id conj :started))
-                         500)
+                              (publish-command-state id plant-id :started (System/currentTimeMillis) nil)
+                              (swap! command-state update id conj :started))
+                            500)
     ; The plant does not know anything about the bounds. So activity sim time is activity-time
     (pt-timer/schedule-task #(handle-plant-finished msg plant-id) (* 1000 activity-time))))
 
@@ -186,9 +186,9 @@
             #_(println "I cannot handle :state" (:state msg) "for id" (:id msg)))
           )))
 
-(defn update-clock [_ metadata data]
+(defn update-clock [_ _ data]
   (let [msg (rmq-data-to-clj data)
-        ts (:timestamp msg)]
+        ts  (:timestamp msg)]
     (if ts (pt-timer/update-clock ts))))
 
 (defn usage [options-summary]
@@ -215,19 +215,19 @@
     (println "in repl mode. Not exiting")))
 
 (defn -main [& args]
-  (let [parsed (cli/parse-opts args cli-options)
-        opts (:options parsed)
+  (let [parsed          (cli/parse-opts args cli-options)
+        opts            (:options parsed)
         ;_ (pprint opts)
-        help (:help opts)
-        plant-ids (:plant-ids opts)
-        plant-ids (if plant-ids (first (csv/read-csv plant-ids)))
-        conn-info (rmq/make-channel (:exchange opts) opts)
-        a-time (:activity-time opts)
-        act-info (:activity-info opts)
+        help            (:help opts)
+        plant-ids       (:plant-ids opts)
+        plant-ids       (if plant-ids (first (csv/read-csv plant-ids)))
+        conn-info       (rmq/make-channel (:exchange opts) opts)
+        a-time          (:activity-time opts)
+        act-info        (:activity-info opts)
         temporal-bounds (:use-temporal-bounds opts)
-        fail (:fail opts)
-        failr (:fail-randomly opts)
-        sim-clock (:simulate-clock opts)
+        fail            (:fail opts)
+        failr           (:fail-randomly opts)
+        sim-clock       (:simulate-clock opts)
         ]
 
     (def repl false)

@@ -140,45 +140,47 @@
     (merge tpn {:network-id netid
                 netid       (netid-old tpn)})))
 
-(defn dispatch-tpn [msg-id tpn bindings show-in-planviz]
+(defn dispatch-tpn [msg-id mission-id tpn bindings show-in-planviz]
   (println "Dispatching tpn " msg-id "show-in-planviz" show-in-planviz)
-  (let [msg-id-str (name msg-id)
-        tpn        (if show-in-planviz
-                     (update-with-unique-network-id msg-id-str tpn)
-                     tpn)
-        tpn-file   (create-temp-tpn-file msg-id-str tpn)
+  (let [msg-id-str    (name msg-id)
+        tpn           (if show-in-planviz
+                        (update-with-unique-network-id msg-id-str tpn)
+                        tpn)
+        tpn-file      (create-temp-tpn-file msg-id-str tpn)
         bindings-file (create-temp-bindings-file msg-id-str bindings)
-        command    ["pamela.tools.dispatcher.dispatch_app"
-                    "--with-dispatcher-manager"
-                    "--bindings-file" bindings-file
-                    "-e" (plant/get-exchange rmq)
-                    "-h" (plant/get-host rmq)
-                    "-p" (plant/get-port rmq)]
-        command    (if-not show-in-planviz
-                     (conj command "--no-tpn-publish")
-                     command)
-        command    (if dispatch-all-choices
-                     (conj command "--dispatch-all-choices")
-                     command)
-        command (if force-plant-id
-                  (conj command "--force-plant-id")
-                  command)
-
-        command    (conj command (.getCanonicalPath tpn-file))]
+        command       ["pamela.tools.dispatcher.dispatch_app"
+                       "--with-dispatcher-manager"
+                       "--bindings-file" bindings-file
+                       "-e" (plant/get-exchange rmq)
+                       "-h" (plant/get-host rmq)
+                       "-p" (plant/get-port rmq)]
+        command       (if-not show-in-planviz
+                        (conj command "--no-tpn-publish")
+                        command)
+        command       (if dispatch-all-choices
+                        (conj command "--dispatch-all-choices")
+                        command)
+        command       (if force-plant-id
+                        (conj command "--force-plant-id")
+                        command)
+        command       (if mission-id
+                        (conj command "--mission-id" mission-id)
+                        command)
+        command       (conj command (.getCanonicalPath tpn-file))]
     (println "tpn-file" tpn-file)
     (println "Starting dispatcher as" command "\n")
     (start-dispatcher msg-id command)))
 
 (defn handle-start-msg [msg]
-  (let [{msg-id                :id
-         plant-id              :plant-id
-         state                 :state
-         command               :function-name
-         [tpn bindings show-in-planviz] :args} msg
+  (let [{msg-id                                    :id
+         plant-id                                  :plant-id
+         state                                     :state
+         command                                   :function-name
+         [tpn mission-id bindings show-in-planviz] :args} msg
         bindings (tpn_util/convert-json-bindings-to-clj bindings)]
 
     (cond (and (= command dispatch-command))
-          (do (let [proc-info (dispatch-tpn msg-id tpn bindings show-in-planviz)]
+          (do (let [proc-info (dispatch-tpn msg-id mission-id tpn bindings show-in-planviz)]
                 (update-state-start! msg proc-info)))
 
           :else
@@ -238,15 +240,16 @@
 (defn cancel-subscription []
   (def rmq (plant/cancel-subscription rmq)))
 
-(defn send-start-msg [plant-msg-id tpn bindings show-in-planviz]
-  (println "Publishing start TPN message to Dispatcher Manager\nmsg-id tpn-id show-in-planviz\n" plant-msg-id (:network-id tpn) show-in-planviz
+(defn send-start-msg [plant-msg-id mission-id tpn bindings show-in-planviz]
+  (println "Publishing start TPN message to Dispatcher Manager\nmsg-id mission-id tpn-id show-in-planviz\n" plant-msg-id mission-id (:network-id tpn) show-in-planviz
            (plant/start rmq
                         default-plant-id
                         plant-msg-id
                         "dispatch_tpn"
-                        [tpn (tpn_util/convert-bindings-to-json bindings) show-in-planviz]
+                        [tpn mission-id (tpn_util/convert-bindings-to-json bindings) show-in-planviz]
                         {:tpn             tpn
-                         :bindings (tpn_util/convert-bindings-to-json bindings)
+                         :mission-id      mission-id
+                         :bindings        (tpn_util/convert-bindings-to-json bindings)
                          :show-in-planviz show-in-planviz}
                         nil nil)))
 
@@ -259,7 +262,7 @@
         msg-id          (second tpn-data)
         show-in-planviz true]
     (println "test-publish-tpn" msg-id)
-    (send-start-msg msg-id tpn nil show-in-planviz)
+    (send-start-msg msg-id "no-mission-id" tpn nil show-in-planviz)
     (when cancel
       (println "test-publish-tpn Sleeping for 10 secs")
       (Thread/sleep 10000)
