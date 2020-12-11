@@ -44,6 +44,7 @@
 (defonce events-count 0)                                    ;Events actually dispatched
 (def events-scheduled 0)
 (def repl true)
+(def cached-events [])
 
 (def cli-options [["-h" "--host rmqhost" "RMQ Host" :default "localhost"]
                   ["-p" "--port rmqport" "RMQ Port" :default 5672 :parse-fn #(Integer/parseInt %)]
@@ -70,6 +71,8 @@
 (defn get-pending-events []
   (- events-scheduled events-count))
 
+(defn get-cached-events []
+  cached-events)
 
 (defn make-java-date
   "Returns java date object initialized with millis since unix epoc"
