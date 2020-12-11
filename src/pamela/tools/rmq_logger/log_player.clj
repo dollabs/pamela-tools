@@ -9,7 +9,6 @@
 (ns pamela.tools.rmq-logger.log-player
   (:gen-class)
   (:require [pamela.tools.utils.rabbitmq :as rmq]
-
             [pamela.tools.utils.util :as util]
 
             [clojure.pprint :refer :all]
@@ -54,6 +53,19 @@
                   ["-l" "--num-lines Nlines" "Number of lines to dispatch" :parse-fn #(Integer/parseInt %)]
                   ["-c" "--simulate-clock Frequency" "Will publish clock messages to rkey clock at given frequency" :parse-fn #(Integer/parseInt %) :default 0]
                   ["-?" "--help" "Print this help" :default nil]])
+
+(defn set-speedup [val]
+  (if val
+    (def speedup val)))
+
+(defn get-speedup []
+  speedup)
+
+(defn set-num-lines [val]
+  (def num-lines val))
+
+(defn get-channel []
+  (:channel @rmq))
 
 (defn get-pending-events []
   (- events-scheduled events-count))
