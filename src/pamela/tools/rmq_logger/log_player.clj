@@ -150,7 +150,7 @@
     (cond repl
           (println "In repl. Not exiting")
           (= events-scheduled events-count)
-          (println "not= events-scheduled events-dispatched" events-scheduled events-count))))
+          (println "= events-scheduled events-dispatched" events-scheduled events-count))))
 
 
 (defn add-clock-events [events start-time end-time frequency]
@@ -239,18 +239,16 @@
     (catch Exception e
       (System/exit 1))))
 
-; TODO Function to dispatch a log file and wait for all events to finish
-;;;; set repl true
-;;;; setup-rmq
-;; for each f in file:
-;;;;;; schedule events
-;;;;;; Wait for events to be finished publishing.. pending events to be 0
-;;; DONE
-;;;;;
-
-
-
-
+(defn play-and-wait "Synchronous function that blocks the calling thread until all messages have been played."
+  [file host port exchange rkey clock-events]
+  ; do not exit when this function is called.
+  (def repl true)
+  (def done false)
+  (go file host port exchange rkey clock-events)
+  (while (not done)
+    (def done (= 0 (get-pending-events)))
+    (Thread/sleep 1000))
+  (println "Done play-and-wait"))
 
 (defn -main [& args]
   (def repl false)
