@@ -51,7 +51,7 @@
 (def assume-string-as-field-reference false)
 
 ; To wait for tpn-dispatch command.
-(def wait-for-tpn-dispatch true)
+(def wait-for-tpn-dispatch false)
 
 (def with-dispatcher-manager false)
 (def dispatcher-manager-rkey "dispatcher-manager")
@@ -77,6 +77,9 @@
 
 (defn reset-rt-exception-state []
   (reset! rt-exceptions []))
+
+(defn set-node-bindings [bndgs]
+  (def bindings bndgs))
 
 (defn exit []
   ;(println "repl state" (:repl @state))
@@ -329,10 +332,12 @@
       (when (contains? tpn_type/edgetypes tpn-type)
         (if-not (and start-time stop-time)
           (println "activity:" uid "does not has start-time and stop-time")
-          (println "activity execution time:"
-                   uid
-                   (if (:display-name obj) (str "(" (:display-name obj) ")") "(null-activity)")
-                   (float (- stop-time start-time))))))))
+          (let [exec-time (float (- stop-time start-time))]
+            (if (> exec-time 0)
+             (println "activity execution time:"
+                      uid
+                      (if (:display-name obj) (str "(" (:display-name obj) ")") "(null-activity)")
+                      exec-time))))))))
 
 (defn tpn-finished-execution? []
   (dispatch/network-finished? (:tpn-map @state)))
@@ -424,7 +429,9 @@
 
 (defn handle-tpn-failed [tpn node-state fail-reasons]
   (println "TPN Failed" (:network-id tpn))
-  (println "Reason for each activity failure")
+  ;(println "node state")
+  ;(pprint node-state)
+  (println "TPN Fail reason")
   (pprint fail-reasons)
 
   (tpn-finished-helper (:network-id tpn))
@@ -607,7 +614,7 @@
         started? (dispatch/activity-started? act-obj)]
 
     (when started?
-      (println act-id "timed out")
+      (println "act failed:" act-id reason)
       (let [fail-time  (pt-timer/getTimeInSeconds)
             ; Calling get-node-started-time before activity-failed because activity-failed
             ; updates node time for all the nodes that could possibly fail along the path
@@ -617,14 +624,17 @@
             ;_ (do (println "node-state")
             ;      (pprint node-state))
             failed-ids (dispatch/activity-failed act-id tpn fail-time reason)
-            act-label  (:display-name (util/get-object act-id (:tpn-map @state)))]
+            act-obj (util/get-object act-id (:tpn-map @state))
+            act-label  (:display-name act-obj)
+            act-args (:args act-obj)]
+
         (when failed-ids
-          (println "Not dispatching rest of activities as activity failed" act-id ":" act-label)
+          (println "Not dispatching rest of activities as activity failed" act-id ":" act-label act-args)
           ;(println "failed ids" (count failed-ids) failed-ids)
           (planviz/failed (get-planviz) failed-ids (get-network-id))
           #_(dispatch/failed-objects failed-ids (util/getTimeInSeconds))
           (when (dispatch/network-finished? (get-tpn))
-            (println "Network failed due to failed activity" act-id)
+            (println "Network failed")
             (let [fail-reasons (dispatch/get-fail-reason (get-tpn))]
               ;(dispatch/print-state-internal (get-tpn))
               #_(doseq [[nid time-val] node-state]
