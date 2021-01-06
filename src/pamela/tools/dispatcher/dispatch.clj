@@ -748,11 +748,14 @@
                                                (when (and obj (= :c-end (:tpn-type obj)))
                                                  obj)))
                                            (keys @state)))
-        _                (pprint choice-end-nodes)
+        ;_                (pprint choice-end-nodes)
+        ;_                (pprint acts)
         node-state       (reduce (fn [res node-obj]
                                    (let [node-acts (:incidence-set node-obj)
-                                         act-state (select-keys acts acts)]
-                                     (conj res (if (and dispatch-all-choices (= node-acts (keys act-state)))
+                                         act-state (select-keys @state node-acts)]
+                                     #_(do (println "node-acts" node-acts)
+                                         (println "act-state" act-state))
+                                     (conj res (if (and dispatch-all-choices (= node-acts (into #{} (keys act-state))))
                                                  {(:uid node-obj) :choice-all-activities-failed}
                                                  {(:uid node-obj) :choice-some-activities-failed}))))
                                  {} choice-end-nodes)]
