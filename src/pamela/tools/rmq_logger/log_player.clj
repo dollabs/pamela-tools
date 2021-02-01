@@ -37,6 +37,7 @@
 (defonce start-delay 1000)
 (defonce dispatch-timer (Timer. "RMQ Event Dispatcher" true))
 (defonce timer-latency (atom []))
+(defonce publish-adapter nil)
 (def default-rkey "#")
 (def speedup 10)
 (def num-lines nil)                                         ;nil implies all lines
@@ -65,14 +66,23 @@
 (defn set-num-lines [val]
   (def num-lines val))
 
+(defn set-repl [val]
+  (def repl val))
+
 (defn get-channel []
   (:channel @rmq))
+
+(defn get-exchange []
+  (:exchange @rmq))
 
 (defn get-pending-events []
   (- events-scheduled events-count))
 
 (defn get-cached-events []
   cached-events)
+
+(defn set-publish-adapter [a-fn]
+  (def publish-adapter a-fn))
 
 (defn make-java-date
   "Returns java date object initialized with millis since unix epoc"
@@ -126,11 +136,15 @@
 
 (defn publish-event [data]
   (def events-count (+ events-count (count data)))
-  (doseq [event data]
-    (rmq/publish-object (-> event
-                            (dissoc :received-routing-key)
-                            (dissoc :exchange))
-                        (get-routing-key event) (:channel @rmq) (or (:exchange data) (:exchange @rmq))))
+  (let [data (if publish-adapter (publish-adapter data)
+                                 data)]
+    (doseq [event data]
+      (rmq/publish-object (-> event
+                              (dissoc :received-routing-key)
+                              (dissoc :exchange))
+                          (get-routing-key event) (:channel @rmq) (or (:exchange data) (:exchange @rmq)))))
+
+
 
   #_(println data))
 
