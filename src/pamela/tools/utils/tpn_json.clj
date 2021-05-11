@@ -26,7 +26,7 @@
   "Fn to convert values to appropriate types"
   (cond (contains? #{:nodeid :edgeid :fromid :toid :tpn-type :network-id :uid :end-node :begin-node :tpn-object-state
                      :sequence-end :state :id :finish-state} k)
-        (if v (keyword (.toLowerCase v))
+        (if v (keyword (.toLowerCase (str v)))
               (when debug (println "val-converter: for key" k "value is nil")))
 
         (contains? #{:activities :incidence-set :constraints} k) (into #{} (map keyword v))
