@@ -12,8 +12,8 @@
     [pamela.tools.dispatcher.tpn-import :as tpn_import]
     [pamela.tools.dispatcher.dispatch-app :as dapp]
     [clojure.pprint :refer :all]
-    [tpn.core-test]
-    ))
+    [tpn.core-test]))
+
 
 (defn from-file [name]
   (planner/solve (tpn_import/from-file name) nil))
@@ -28,8 +28,8 @@
 
 (defn plan-and-dispatch [fname]
   (let [pdata (from-file fname)
-        delayed-dispatch (* 5 1000)
-        ]
+        delayed-dispatch (* 5 1000)]
+
     (def planned pdata)
     ; Ensure dapp name space is (dapp/go) with proper arguments before calling this function
     (dapp/go ["--force-plant-id"])
@@ -37,14 +37,27 @@
                                                (+ delayed-dispatch (System/currentTimeMillis)))
     (println "Node bindings")
     (pprint (:bindings pdata))
-    (dapp/wait-until-tpn-finished)
-    ))
+    (dapp/wait-until-tpn-finished)))
+
 
 (defn plan-and-dispatch-all []
   (doseq [[tpn] tpn.core-test/all-tpns]
     (println "Testing with planner bindings" tpn)
-    (plan-and-dispatch tpn)
-    ))
+    (plan-and-dispatch tpn)))
+
+; Invoke as
+; (run-planner "test/repr/data/sequence.feasible/sequence.feasible.tpn.json" {:node-4 0
+;                                                                            :node-1 4})
+(defn run-planner [tpn-file bindings]
+  (let [tpn (tpn_import/from-file tpn-file)
+        {tpn :tpn bindings :bindings} (planner/solve-with-node-bindings tpn bindings 1)]
+    (dapp/set-node-bindings bindings)
+    (dapp/setup-and-dispatch-tpn tpn)
+    bindings))
+
+
+
+
 
 ; FIXME
 #_(defn test-bindings-to-json []
