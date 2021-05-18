@@ -97,7 +97,7 @@
       (util/to-std-err (println "threaded-read interrupted"))))
 
   (when sig-terminate
-    (util/to-std-err (println "Clearing Q due to SIGTERM" (.size msg-q)))
+    (util/to-std-err (println "Clearing Q due to SIGTERM. Pending messages" (.size msg-q)))
     (loop [start-time (System/currentTimeMillis)
            now        (System/currentTimeMillis)]
       (if (>= now (+ 2000 start-time))
@@ -109,9 +109,9 @@
 
     (util/to-std-err
       (println "Messages received so far" received-count)
-      (println "Done Clearing Q due to SIGTERM" (.size msg-q))))
+      (println "Done Clearing Q due to SIGTERM. Pending messages" (.size msg-q))))
 
-  (util/to-std-err (println "done -- threaded-read")))
+  #_(util/to-std-err (println "done -- threaded-read")))
 
 (defn incoming-msgs [_ metadata ^bytes payload]
   ;(pprint metadata)
