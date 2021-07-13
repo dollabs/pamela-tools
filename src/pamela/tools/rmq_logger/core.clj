@@ -37,6 +37,7 @@
 (defonce msg-q (new LinkedBlockingQueue))
 (defonce read-thread nil)
 (def sig-terminate false)
+(def clear-queue false)
 (def truncated-output-length "If non-nil, this is the length of the raw-data output"
   (atom nil))
 
@@ -52,6 +53,8 @@
                   ["-n" "--name dbname" "Mongo DB Name" :default (str "rmq-log-" (.format sdf (Date.)))]
                   ["-l" "--length length" "Truncated length of the raw-data output"
                    :default nil :parse-fn #(Integer/parseInt %)]
+                  [nil "--clear-queue true/false" "Upon Control-C, this option will clear Q, wait for 2 seconds then exit."
+                   :default false :parse-fn #(Boolean/parseBoolean %)]
                   ["-?" "--help"]])
 
 (defn handle-message
@@ -98,18 +101,27 @@
 
   (when sig-terminate
     (util/to-std-err (println "Clearing Q due to SIGTERM. Pending messages" (.size msg-q)))
-    (loop [start-time (System/currentTimeMillis)
-           now        (System/currentTimeMillis)]
-      (if (>= now (+ 2000 start-time))
-        nil
-        (let [m (.poll msg-q 1 TimeUnit/SECONDS)]
-          (util/to-std-err (println "Waiting.. " (- (+ 2000 start-time) now)))
-          (handle-message (:payload m) (:exchange m) (:routing-key m) (:content-type m) (:time m))
-          (recur start-time (System/currentTimeMillis)))))
+    (let [before (System/currentTimeMillis)
+          _      (loop [start-time (System/currentTimeMillis)
+                        now        (System/currentTimeMillis)]
+                   (if (>= now (+ 2000 start-time))
+                     nil
+                     (let [m              (.poll msg-q 1 TimeUnit/SECONDS)
+                           new-start-time (if (and clear-queue m)
+                                            ; will exit 2 seconds after last message has been handled
+                                            (+ 2000 now)
+                                            ; Guaranteed exit in 2 seconds but may leave unprocessed messages in the Q.
+                                            start-time)]
 
-    (util/to-std-err
-      (println "Messages received so far" received-count)
-      (println "Done Clearing Q due to SIGTERM. Pending messages" (.size msg-q))))
+                       #_(util/to-std-err (println "Waiting time in millis before definite exit.. " (- (+ 2000 start-time) now)))
+                       (when m (handle-message (:payload m) (:exchange m) (:routing-key m) (:content-type m) (:time m)))
+                       (recur new-start-time (System/currentTimeMillis)))))
+          after  (System/currentTimeMillis)]
+      (util/to-std-err (println "Sig Terminate time:" (- after before)))
+      (util/to-std-err
+        (println "Messages received so far" received-count)
+        (println "Done Clearing Q due to SIGTERM. Pending messages" (.size msg-q)))))
+
 
   #_(util/to-std-err (println "done -- threaded-read")))
 
@@ -152,7 +164,6 @@
 (defn -main
   "Tail messages through exchange"
   [& args]
-  (.addShutdownHook (Runtime/getRuntime) (Thread. shutdown))
   (def foo-args args)
   ;; (println "args:" args)
   ;; (println "args type:" (type args))
@@ -162,6 +173,7 @@
         host              (get-in parsed [:options :host])
         port              (get-in parsed [:options :port])
         help              (get-in parsed [:options :help])
+        clear-q (get-in parsed [:options :clear-queue])
         _                 (def repl false)
         _                 (when help
                             (println (usage (:summary parsed)))
@@ -184,8 +196,9 @@
         ;    (mongo.db/get-db (get-in parsed [:options :name]))
         ;    (update-mongo?-p! true))
         truncation-length (get-in parsed [:options :length])]
-
-
+    (.addShutdownHook (Runtime/getRuntime) (Thread. shutdown))
+    (def clear-queue clear-q)
+    (util/to-std-err (println "Will clear queue upon Control-C" clear-queue))
     (reset! truncated-output-length truncation-length)
     (if @truncated-output-length
       (println "truncated-output-length:" @truncated-output-length))
