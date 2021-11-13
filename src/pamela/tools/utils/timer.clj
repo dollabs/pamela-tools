@@ -86,7 +86,7 @@
   [cval]
   {:pre [(not (nil? cval))]}
   (if (> @clock cval)
-    (pt-util/to-std-err (println "update-clock value is in past:" cval "current clock" @clock)))
+    (pt-util/to-std-err (println "update-clock value is in past:" cval "current clock:" @clock "delta(ms): " (- @clock cval))))
 
   (do (reset! clock cval)
       (if (get-use-sim-time)
@@ -130,7 +130,7 @@
 
 (defn make-instant [& [millis]]
   (if millis (Instant/ofEpochMilli (long millis))
-             (Instant/now (get-unix-time))))
+             #_(Instant/now (get-unix-time))))
 
 (defn make-instant-seconds [seconds]
   (make-instant (* 1000 seconds)))
@@ -140,3 +140,10 @@
     ;(println "t" t)
     (schedule-task (fn []
                      (println "tst timer" t)) (* 100 t))))
+
+(defn as-str []
+  (str (Instant/ofEpochMilli (get-unix-time))))
+
+(defn print-call-backs []
+  (doseq [x @call-backs]
+    (println (make-instant (first x)))))
