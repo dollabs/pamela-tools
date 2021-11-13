@@ -647,6 +647,35 @@
          #_(all-activities-finished-or-failed? @state tpn-net) ;does not work for choice nodes.
          )))
 
+(defn network-failed?
+  "The network is failed when the end node is failed.
+  The end node is failed if any of the incoming activities is failed
+    For the case when multiple choices are dispatched, end node is failed if all the
+    incoming activties are failed."
+  [tpn-net]
+
+  (let [network (util/get-object (:network-id tpn-net) tpn-net)
+        begin   (util/get-object (:begin-node network) tpn-net)
+        end     (util/get-network-end-node tpn-net begin)
+        inc-set-state (map (fn [uid]
+                             [uid {:state (check-activity-state (util/get-object uid tpn-net) @state)
+                                   :failed (not (nil? (:fail-time (uid @state))))}]
+                             ) (:incidence-set end))
+        all-finished (every? (fn [[_ state]]
+                               (= :finished (:state state))) inc-set-state)
+        failed-state (map (fn [[_ act-state]]
+                            (:failed act-state)) inc-set-state)]
+    ;(println "end node acts" (:incidence-set end))
+    ;(pprint inc-set-state)
+    ;(println "all-finished" all-finished)
+    ;(println "failed state" failed-state)
+    (if all-finished
+      (cond (and (= :c-end (:tpn-type end)) (true? dispatch-all-choices))
+            (every? true? failed-state)
+            :else
+            (some true? failed-state))
+      false)))
+
 (defn collect-pending-finished [node state tpn]
   (reduce (fn [res incoming-act]
             (let [act-state (check-activity-state (util/get-object incoming-act tpn) state)]
@@ -761,6 +790,43 @@
                                  {} choice-end-nodes)]
     (merge acts node-state)))
 
+;; Supporting function for walker
+;; Find all end nodes that have reached.
+(defn- find-reached-nodes-for-failed-activity [tpn]
+  (fn [uid]
+    ;(println "make-dispatchable-walker" uid)
+    (let [obj (util/get-object uid tpn)
+          typ (:tpn-type obj)]
+      ;(println typ)
+      ;(pprint obj)
+      (cond (util/is-edge obj)
+            (let [act-state (get-activity-state obj)]
+              ;(println uid "state" act-state)
+              (if (= :finished act-state)
+                [[] [(:end-node obj)]]
+                [[] []]))
+
+            (util/is-node obj)
+            (let [reached? (node-reached? obj @state tpn)]
+              ;(println uid "node reached?" reached?)
+              ; first not reached node is dispatchable
+              (if reached?
+                [[uid] (into [] (:activities obj))]
+                [[] []]))))))
+
+(defn- dispatch-ids [disp-ids tpn]
+  ;(println "dispatch-ids " disp-ids)
+  (let [ret (reduce (fn [res uid]
+                      (conj res (dispatch-object (uid tpn) tpn {}))
+                      ) {} disp-ids)]
+    ;(println "node dispatched state")
+    ;(pprint ret)
+    ret)
+
+  #_(let [dispatchable (util/walker failed-act-id (find-dispatchable-node-for-failed-activity tpn)) ]
+    (when dispatchable
+      (dispatch-object (dispatchable tpn) tpn {}))))
+
 (defn activity-failed [failed-act-id tpn fail-time reason]
   ;(println failed-act-id fail-time reason)
   (let [act-state (check-activity-state (util/get-object failed-act-id tpn) @state)]
@@ -768,5 +834,14 @@
       (do
         ; update fail reason only for the activity
         (update-state [failed-act-id :fail-reason] reason)
-        (util/walker failed-act-id (make-fail-walker tpn fail-time)))
+        (let [failed-ids (util/walker failed-act-id (make-fail-walker tpn fail-time))
+              reached-node-ids (util/walker failed-act-id (find-reached-nodes-for-failed-activity tpn))
+              ;_ (println "failed-ids" failed-ids)
+              ;_ (println "reached-node-ids" reached-node-ids)
+              ; If the nodes are failed, they should not be dispatched
+              node-that-remain-to-be-dispatched (set/difference (into #{} reached-node-ids) (into #{} failed-ids))
+              dispatchable (dispatch-ids node-that-remain-to-be-dispatched tpn)]
+
+          {:failed-ids   failed-ids
+           :dispatchable dispatchable}))
       (do (println "Failed activity" failed-act-id "state is " act-state)))))

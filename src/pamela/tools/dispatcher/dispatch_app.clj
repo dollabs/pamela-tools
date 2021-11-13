@@ -623,28 +623,25 @@
             node-state (merge node-state {(:end-node act-obj) fail-time})
             ;_ (do (println "node-state")
             ;      (pprint node-state))
-            failed-ids (dispatch/activity-failed act-id tpn fail-time reason)
+            {failed-ids :failed-ids
+             dispatchable :dispatchable} (dispatch/activity-failed act-id tpn fail-time reason)
             act-obj (util/get-object act-id (:tpn-map @state))
             act-label  (:display-name act-obj)
             act-args (:args act-obj)]
 
         (when failed-ids
-          (println "Not dispatching rest of activities as activity failed" act-id ":" act-label act-args)
-          ;(println "failed ids" (count failed-ids) failed-ids)
-          (planviz/failed (get-planviz) failed-ids (get-network-id))
-          #_(dispatch/failed-objects failed-ids (util/getTimeInSeconds))
-          (when (dispatch/network-finished? (get-tpn))
-            (println "Network failed")
-            (let [fail-reasons (dispatch/get-fail-reason (get-tpn))]
-              ;(dispatch/print-state-internal (get-tpn))
-              #_(doseq [[nid time-val] node-state]
-                  (println "act-fail-handler" nid ":" (str (pt-timer/make-instant time-val))))
-              #_(pprint node-state)
-              (handle-tpn-failed (get-tpn) node-state fail-reasons))))))))
+          ;(println "Not dispatching rest of activities as activity failed" act-id ":" act-label act-args)
+          (println "failed ids" (count failed-ids) failed-ids)
+          (planviz/failed (get-planviz) failed-ids (get-network-id)))
 
+        ;(println "dispatchable" dispatchable)
+        (when (pos? (count dispatchable))
+          (publish-dispatched dispatchable (get-tpn)))
 
-
-
+        (when (dispatch/network-failed? (get-tpn))
+          (println "Network failed")
+          (let [fail-reasons (dispatch/get-fail-reason (get-tpn))]
+            (handle-tpn-failed (get-tpn) node-state fail-reasons)))))))
 
 (defn get-non-plant-msg-type
   "Non plant message is:
