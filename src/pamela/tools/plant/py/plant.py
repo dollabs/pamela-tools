@@ -98,7 +98,7 @@ class Plant:
         # print("closing rmq connection")
 
         while self.to_rmq:
-            print 'plant closing, process pending messages', len(self.to_rmq)
+            print('plant closing, process pending messages', len(self.to_rmq))
             self.process_to_rmq()
 
         self.channel.close()
@@ -204,9 +204,9 @@ class Plant:
         th = threading.current_thread()
 
         if th.ident != self.channel_thread.ident or th.getName() != self.channel_thread.getName():
-            print 'WARN: ', 'discrepancy in plant create thread and outgoing thread sending the outgoing message'
-            print 'current thread', th.ident, th.getName()
-            print 'channel thread', self.channel_thread.ident, self.channel_thread.getName()
+            print('WARN: ', 'discrepancy in plant create thread and outgoing thread sending the outgoing message')
+            print('current thread', th.ident, th.getName())
+            print('channel thread', self.channel_thread.ident, self.channel_thread.getName())
 
         if properties is None:
             self.channel.basic_publish(exchange, routing_key, data)
