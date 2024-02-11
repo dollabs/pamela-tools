@@ -48,6 +48,8 @@
 (def cli-options [["-h" "--host rmqhost" "RMQ Host" :default "localhost"]
                   ["-p" "--port rmqport" "RMQ Port" :default 5672 :parse-fn #(Integer/parseInt %)]
                   ["-e" "--exchange name" "RMQ Exchange Name" :default "tpn-updates"]
+                  ["-u" "--username name" "Username" :default "guest"]
+                  ["-w" "--password pw" "Password" :default "guest"]
                   [nil "--dbhost dbhost" "Mongo DB Host"]
                   [nil "--dbport dbport" "Mongo DB Port" :parse-fn #(Integer/parseInt %)]
                   ["-n" "--name dbname" "Mongo DB Name" :default (str "rmq-log-" (.format sdf (Date.)))]
@@ -172,13 +174,15 @@
         ch-name           (get-in parsed [:options :exchange])
         host              (get-in parsed [:options :host])
         port              (get-in parsed [:options :port])
+        uname             (get-in parsed [:options :username])
+        pword             (get-in parsed [:options :password])
         help              (get-in parsed [:options :help])
         clear-q (get-in parsed [:options :clear-queue])
         _                 (def repl false)
         _                 (when help
                             (println (usage (:summary parsed)))
                             (exit 0))
-        connection        (try (lcore/connect {:host host :port port})
+        connection        (try (lcore/connect {:host host :port port :username uname :password pword})
                                (catch ConnectException e
                                  (util/to-std-err (println (.getMessage e)
                                                            (str "for " host ":" port)))))

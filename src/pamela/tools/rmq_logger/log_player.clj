@@ -50,6 +50,8 @@
 (def cli-options [["-h" "--host rmqhost" "RMQ Host" :default "localhost"]
                   ["-p" "--port rmqport" "RMQ Port" :default 5672 :parse-fn #(Integer/parseInt %)]
                   ["-e" "--exchange name" "RMQ Exchange Name" :default "tpn-updates"]
+                  ["-u" "--username name" "Username" :default "guest"]
+                  ["-w" "--password pw" "Password" :default "guest"]
                   ["-r" "--routing-key rkey" "Default routing-key is: #, when message itself does not has it" :default "#"]
                   ["-s" "--speedup speed" "Events will be dispatched `speedup` times faster" :default speedup :parse-fn #(Double/parseDouble %)]
                   ["-l" "--num-lines Nlines" "Number of lines to dispatch" :parse-fn #(Integer/parseInt %)]
@@ -250,17 +252,17 @@
                print-stats-time)))
 
 
-(defn setup-rmq [host port exchange rkey]
+(defn setup-rmq [host port exchange username password rkey]
   (def default-rkey rkey)
-  ;(println "RMQ Config" host port exchange rkey)
+  ;(println "RMQ Config" host port username password exchange rkey)
   (when (> (count @rmq) 0)
     (println "RMQ is already setup. Closing open objects")
     (rmq/close-all @rmq))
-  (let [conn (rmq/make-channel exchange {:host host :port port})]
+  (let [conn (rmq/make-channel exchange {:host host :port port :username username :password password})]
     (if conn (swap! rmq conj conn))))
 
-(defn go [file host port exchange rkey clock-events]
-  (if-not (setup-rmq host port exchange rkey)
+(defn go [file host port exchange username password rkey clock-events]
+  (if-not (setup-rmq host port exchange username password rkey)
     (System/exit 1))
   (println "Starting events dispatch in " (float (/ start-delay 1000)) "secs")
   (try
@@ -269,11 +271,11 @@
       (System/exit 1))))
 
 (defn play-and-wait "Synchronous function that blocks the calling thread until all messages have been played."
-  [file host port exchange rkey clock-events]
+  [file host port exchange username password rkey clock-events]
   ; do not exit when this function is called.
   (def repl true)
   (def done false)
-  (go file host port exchange rkey clock-events)
+  (go file host port exchange username password rkey clock-events)
   (while (not done)
     (def done (= 0 (get-pending-events)))
     (Thread/sleep 1000))
@@ -289,6 +291,8 @@
          host         :host
          port         :port
          exchange     :exchange
+         username     :username
+         password     :password
          rkey         :routing-key
          speed        :speedup
          nlines       :num-lines
@@ -304,7 +308,7 @@
     (if (or help (not file))
       (do (println "Usage: pamela.tools.rmq-logger.log-player options raw-event-data-file\n where options are:")
           (println (:summary parsed)))
-      (go file host port exchange rkey clock-events))))
+      (go file host port exchange username password rkey clock-events))))
 
 (defn write-sorted-data
   "To sort data from a csv file and write it back"
